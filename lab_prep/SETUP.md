@@ -63,6 +63,15 @@ The first-run browser bootstrap is tested against pinned Paseo 0.9.2; rerun
 when upgrading Paseo. Browser-test dependencies are not needed on student VMs.
 It invokes `run_data_prep.py`, which builds `lab_prep/Dockerfile` and runs a
 standalone preparation container using `docker run`, never lab Compose.
+Dataset discovery and raw-file URL resolution use the pinned official KaggleHub
+client (1.0.3) and Kaggle SDK (0.1.38), which support anonymous access to these
+public datasets. No Kaggle token is required for the workshop. File discovery
+follows all pagination tokens. Only the selected cases are extracted using
+validated HTTP byte ranges; the downloader never falls back to fetching entire
+multi-GB archive parts when a server ignores a Range header. The temporary SDK
+download response is closed without consuming its body after resolving the
+storage URL. This replaces the hand-written legacy API calls that returned
+empty HTTP 404 responses on the Brev deployment.
 After the gateway is healthy, setup starts NV-Segment-CT preparation in a
 standalone background container, outside Compose. The lab does not wait for
 this download. It reuses the existing training image with no GPU, Docker socket,

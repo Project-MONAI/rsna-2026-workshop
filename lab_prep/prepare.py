@@ -12,10 +12,15 @@ import re
 import shutil
 import struct
 import time
-from urllib.parse import quote
+from urllib.parse import urlsplit
 import zipfile
 
 import requests
+from kagglehub.clients import build_kaggle_client
+from kagglesdk.datasets.types.dataset_api_service import (
+    ApiDownloadDatasetRequest,
+    ApiListDatasetFilesRequest,
+)
 
 
 COHORTS = {
@@ -43,6 +48,51 @@ def write_json(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n")
 
 
+def kaggle_files(slug):
+    """List every page through the same anonymous client used by KaggleHub."""
+    owner, dataset = slug.split("/", 1)
+    files = []
+    token = None
+    seen_tokens = set()
+    with build_kaggle_client() as client:
+        while True:
+            request = ApiListDatasetFilesRequest()
+            request.owner_slug = owner
+            request.dataset_slug = dataset
+            request.page_size = 100
+            if token:
+                request.page_token = token
+            response = client.datasets.dataset_api_client.list_dataset_files(request)
+            files.extend({"name": item.name, "totalBytes": item.total_bytes}
+                         for item in response.dataset_files)
+            token = response.next_page_token
+            if not token:
+                return files
+            if token in seen_tokens:
+                raise RuntimeError("Kaggle returned a repeated file-list pagination token")
+            seen_tokens.add(token)
+
+
+def kaggle_file_url(slug, name):
+    """Resolve a raw part's storage URL without consuming its streamed body."""
+    owner, dataset = slug.split("/", 1)
+    request = ApiDownloadDatasetRequest()
+    request.owner_slug = owner
+    request.dataset_slug = dataset
+    request.file_name = name
+    request.raw = True
+    with build_kaggle_client() as client:
+        # The SDK streams download responses. Close this response immediately;
+        # RangeArchive fetches only the required byte ranges from the final URL.
+        with client.datasets.dataset_api_client.download_dataset(request) as response:
+            response.raise_for_status()
+            url = response.url
+            parsed = urlsplit(url)
+            if parsed.scheme != "https" or not parsed.netloc:
+                raise RuntimeError("Kaggle returned an invalid raw-file storage URL")
+            return url
+
+
 class RangeArchive(io.RawIOBase):
     """Seek across split ZIP disks without downloading whole archive parts."""
 
@@ -56,19 +106,7 @@ class RangeArchive(io.RawIOBase):
         self.network_bytes = 0
         self.network_seconds = 0.0
         self.requests_count = 0
-        files = []
-        token = ""
-        while True:
-            response = self.session.get(
-                f"https://www.kaggle.com/api/v1/datasets/list/{slug}",
-                params={"pageSize": 100, "pageToken": token}, timeout=60,
-            )
-            response.raise_for_status()
-            payload = response.json()
-            files.extend(payload["datasetFiles"])
-            token = payload.get("nextPageToken", "")
-            if not token:
-                break
+        files = kaggle_files(slug)
         archive = next(c["archive"] for c in COHORTS.values() if c["slug"] == slug)
         disks = sorted(
             (f for f in files if re.fullmatch(re.escape(archive) + r"\.z\d+", f["name"])),
@@ -103,8 +141,7 @@ class RangeArchive(io.RawIOBase):
             return b""
         url = self.urls.get(disk)
         if url is None:
-            name = quote(self.parts[disk]["name"], safe="")
-            url = f"https://www.kaggle.com/api/v1/datasets/download/{self.slug}/{name}?raw=true"
+            url = kaggle_file_url(self.slug, self.parts[disk]["name"])
         started = time.perf_counter()
         with self.session.get(
             url, headers={"Range": f"bytes={offset}-{offset + length - 1}",

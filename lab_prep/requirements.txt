@@ -1,4 +1,6 @@
 requests>=2.32,<3
+kagglehub==1.0.3
+kagglesdk==0.1.38
 numpy>=1.26,<3
 scipy>=1.13,<2
 nibabel>=5.2,<6

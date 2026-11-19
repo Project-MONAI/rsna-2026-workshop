@@ -4,14 +4,16 @@ import json
 from pathlib import Path
 import struct
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 import zipfile
 
 import nibabel as nib
 import numpy as np
 
-from prepare import COHORTS, RangeArchive, SplitZip, prepare, select_members
+from prepare import (COHORTS, RangeArchive, SplitZip, kaggle_file_url,
+                     kaggle_files, prepare, select_members)
 
 
 class LocalRanges(RangeArchive):
@@ -55,6 +57,74 @@ def split_fixture(corrupt=False):
     if corrupt:
         blob[100] ^= 1
     return LocalRanges([bytes(blob[:boundary]), bytes(blob[boundary:])]), payload
+
+
+class KaggleAccessTests(unittest.TestCase):
+    @patch("prepare.build_kaggle_client")
+    def test_file_listing_follows_pagination(self, build):
+        api = build.return_value.__enter__.return_value.datasets.dataset_api_client
+        api.list_dataset_files.side_effect = [
+            SimpleNamespace(dataset_files=[SimpleNamespace(name="1-200.z01", total_bytes=100)],
+                            next_page_token="second"),
+            SimpleNamespace(dataset_files=[SimpleNamespace(name="1-200.change2zip", total_bytes=50)],
+                            next_page_token=""),
+        ]
+        self.assertEqual(kaggle_files("owner/dataset"), [
+            {"name": "1-200.z01", "totalBytes": 100},
+            {"name": "1-200.change2zip", "totalBytes": 50},
+        ])
+        requests = [call.args[0] for call in api.list_dataset_files.call_args_list]
+        self.assertEqual([r.page_token for r in requests], ["", "second"])
+        self.assertTrue(all(r.owner_slug == "owner" and r.dataset_slug == "dataset"
+                            and r.page_size == 100 for r in requests))
+        build.return_value.__exit__.assert_called_once()
+
+    @patch("prepare.build_kaggle_client")
+    def test_repeated_page_token_rejected(self, build):
+        api = build.return_value.__enter__.return_value.datasets.dataset_api_client
+        api.list_dataset_files.return_value = SimpleNamespace(dataset_files=[], next_page_token="same")
+        with self.assertRaisesRegex(RuntimeError, "repeated"):
+            kaggle_files("owner/dataset")
+        self.assertEqual(api.list_dataset_files.call_count, 2)
+
+    @patch("prepare.build_kaggle_client")
+    def test_raw_url_resolution_never_reads_archive_body(self, build):
+        api = build.return_value.__enter__.return_value.datasets.dataset_api_client
+        response = api.download_dataset.return_value.__enter__.return_value
+        response.url = "https://storage.googleapis.com/example/part?signature=test"
+        type(response).content = PropertyMock(side_effect=AssertionError("Archive body consumed"))
+        self.assertEqual(kaggle_file_url("owner/dataset", "part.z01"), response.url)
+        request = api.download_dataset.call_args.args[0]
+        self.assertEqual((request.owner_slug, request.dataset_slug, request.file_name, request.raw),
+                         ("owner", "dataset", "part.z01", True))
+        response.iter_content.assert_not_called()
+        api.download_dataset.return_value.__exit__.assert_called_once()
+
+    @patch("prepare.build_kaggle_client")
+    def test_insecure_storage_url_rejected(self, build):
+        api = build.return_value.__enter__.return_value.datasets.dataset_api_client
+        api.download_dataset.return_value.__enter__.return_value.url = "http://example.invalid/part"
+        with self.assertRaisesRegex(RuntimeError, "storage URL"):
+            kaggle_file_url("owner/dataset", "part.z01")
+
+    @patch("prepare.kaggle_file_url", return_value="https://storage.googleapis.com/example/part")
+    def test_range_reads_use_resolved_url_and_cache_it(self, resolve):
+        remote, _ = split_fixture()
+        remote.slug = "owner/dataset"
+        remote.parts[0]["name"] = "part.z01"
+        remote.urls = {}
+        remote.network_bytes = remote.network_seconds = remote.requests_count = 0
+        remote.session = MagicMock()
+        response = remote.session.get.return_value.__enter__.return_value
+        response.status_code = 206
+        response.headers = {"Content-Range": "bytes 0-3/128"}
+        response.content = b"test"
+        response.url = resolve.return_value
+        self.assertEqual(RangeArchive.fetch(remote, 0, 0, 4), b"test")
+        self.assertEqual(RangeArchive.fetch(remote, 0, 0, 4), b"test")
+        resolve.assert_called_once_with("owner/dataset", "part.z01")
+        self.assertEqual(remote.session.get.call_args.kwargs["headers"]["Range"], "bytes=0-3")
+        self.assertTrue(remote.session.get.call_args.kwargs["stream"])
 
 
 class PreparationTests(unittest.TestCase):
