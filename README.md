@@ -1,162 +1,131 @@
-# RSNA 2026 Workshop: MIAgent Medical Imaging Agent Lab
+# MIAgent: Medical Imaging Agent
 
-Explore how a language model becomes an agent that can research a medical imaging problem, run experiments, and leave results you can inspect.
+**A harness for human-steered medical imaging research.**
 
-This hands-on lab combines a locally served Qwen model, the OpenCode harness, MIAgent workflow instructions, medical AI skills, and a Docker-based training environment. Students compare model-only chat with an agent that can read files, use tools, submit GPU jobs, and examine predictions.
+[1. Medical Imaging Agent](#1-medical-imaging-agent) · [2. Workshop & setup](#2-hands-on-workshop-rsna-2026) · [3. Lab Walkthrough](#3-lab-walkthrough)
 
-**Workshop format:** three browser-based lessons, two medical imaging challenges, and no Jupyter notebooks. The lessons run in the lab's browser workspace. You interact with the agent using natural-language prompts and review its work through documents, tracking tools, and image viewers.
+## 1. Medical Imaging Agent
 
-## Who this lab is for
+### 1.1 What is MIAgent?
 
-- **Clinicians and imaging researchers** who want to understand what an agent does, inspect its scientific reasoning, and assess its predictions.
-- **Data scientists and AI engineers** who want to explore skills, experiment workflows, GPU execution, and reproducible research records.
+This workshop is a lab adaptation of the [MIAgent skill published in NVIDIA Medtech Medical AI Skills](https://github.com/NVIDIA-Medtech/medical-AI-skills/tree/dev/skills/miagent). MIAgent helps a coding agent research medical imaging problems, plan and run experiments, and record evidence while you steer key decisions.
 
-Basic familiarity with medical imaging and machine learning is useful. The student walkthrough does not require writing a training pipeline from scratch.
+The harness combines **workflow instructions, research records, reusable skills, and human decision points**. It works with **Codex, OpenCode, or another compatible coding agent**. Skills explain how to use tools and inspect outputs without changing model weights. Browse the [bundled skills](MIAgent/skills/) and [NVIDIA Medtech Medical AI Skills catalog](https://github.com/NVIDIA-Medtech/medical-AI-skills) for DICOM, MONAI, segmentation, and fine-tuning workflows.
 
-## What you will learn
+**In this lab, we use Qwen so model inference stays local.** The LLM, segmentation training, and image review run on the lab machine, with no external LLM API required. On Brev, "local" means the lab VM. Other MIAgent deployments can use a different local model or a hosted model API through their coding agent. Setup downloads and literature searches still need internet access.
 
-By the end of the lab, you should be able to:
+### 1.2 Human steering
 
-- Distinguish the **model**, **harness**, **agent**, and **user interface**.
-- Explain why a model-only conversation cannot inspect current files, query running jobs, or retrieve live information without tools.
-- Identify how instructions and skills guide the agent's use of existing medical AI tools.
-- Follow a research task through literature evidence, candidate selection, an implementation plan, and experiments.
-- Check experiment status and distinguish planned work from completed results.
-- Compare saved metrics, training curves, and prediction overlays.
-- Explain how the containers separate responsibilities and where they share resources.
-- Ask questions and steer the next experiment using the recorded evidence.
+You decide what problem matters, what resources the agent may use, and when to change direction. The agent keeps its work in files so those decisions remain visible beyond the chat.
 
-## The three lessons
+[![MIAgent design guidelines connecting expert research observations to baseline selection, agent-led problem solving, human steering, durable research records, and flexible authority](docs/images/miagent-design-guidelines.png)](docs/images/miagent-design-guidelines.png)
 
-| Lesson | Focus | What the student does |
-| --- | --- | --- |
-| **01 — Models, harnesses, and agents** | Concepts, interfaces, architecture, skills, and inference | Start the CAS and CHD agents, compare model-only chat with tool use, explore the container setup, and use NV-Segment-CT inference. |
-| **02 — MIAgent overview** | Research workflow and durable artifacts | Understand the workflow, human decision gates, research records, and how work continues beyond a single conversation. |
-| **03 — MIAgent workflow** | Inspecting actual agent work | Follow CAS research and experiments, review CHD architecture experiments, inspect predictions, and compare runs with MLflow and TensorBoard. |
+1. **Define the task.** Set the data, evaluation metric, constraints, and stopping condition.
+2. **Review the approach.** Inspect the research and candidate methods. Choose a direction or ask the agent to revise it.
+3. **Approve or adjust the plan.** Review the proposed implementation before the experiments begin.
+4. **Inspect results and steer.** Compare runs and predictions, ask what failed, or change the next experiment. The agent records the decision and continues from it.
 
-Lesson sources:
+By default, the workflow pauses to let you choose between candidate methods and approve the implementation plan. An optional auto mode lets the agent continue through those gates under your instructions. You can still redirect the work in natural language.
 
-1. [Models, harnesses, and agents](MIAgent/lab/01_overview.html)
-2. [MIAgent workflow overview](MIAgent/docs/miagent_v3_overview.html)
-3. [Inspect the agent's work](MIAgent/lab/03_MIAgent_workflow.html)
+The challenge folder holds the task definition, literature notes, plans, experiment outcomes, and decision history. See the [workflow overview](MIAgent/docs/miagent_v3_overview.html), [application documentation](MIAgent/README.md), and [challenge template](MIAgent/challenge/challenge_template/) for details.
 
-Open these lessons in the deployed lab's Preview/viewer for the interactive experience. GitHub file links provide access to the HTML source. The second lesson uses the overview maintained under `docs/`.
+### 1.3 What we achieved with MIAgent
 
-The first lesson starts the longer experiments early. Continue with the concepts and walkthrough while the agents work; you do not need to wait for training to finish before reading the remaining sections.
+[![MIAgent results across live MICCAI 2026 challenges and the CamylaBench and ReX-MLE offline benchmarks](docs/images/miagent-results.png)](docs/images/miagent-results.png)
 
-## Two challenges, two ways to delegate
+## 2. Hands-on Workshop, RSNA 2026
 
-| Challenge | Task | How the prompt guides the agent | Stopping instruction |
-| --- | --- | --- | --- |
-| **ImageCAS** | Coronary artery segmentation on cardiac CT | Give the agent the dataset and goal. Follow its task analysis, literature survey, critique, method selection, and experiment refinement. | Validation Dice 0.90 or 90 minutes. |
-| **ImageCHD** | Cardiac structure segmentation on CT | Supply an explicit architecture sequence: MONAI SegResNet, UNet, and NV-Segment fine-tuning. Skip the literature survey and critique. | Validation Dice 0.90 or 55 minutes; at most 10 epochs per experiment, validating at epochs 5 and 10. |
+This RSNA 2026 hands-on workshop adapts the [MIAgent skill from NVIDIA Medtech Medical AI Skills](https://github.com/NVIDIA-Medtech/medical-AI-skills/tree/dev/skills/miagent) into a ready-to-run lab using OpenCode, local Qwen, Paseo, and Docker.
 
-Use the exact launch prompts in lesson 01. These targets are task instructions, not claims that a run will achieve them. The agents share GPU capacity, so opening two conversations does not guarantee simultaneous training.
+[Watch the MONAI MedTech Day demo](https://www.youtube.com/watch?v=o4pNwlCBgOw).
 
-For CAS, focus on **how the research changes the plan**. Read `literature.md`, check the cited evidence and available implementations, inspect critique limitations, and trace the selected direction into the experiments. Published paper scores and the lab's validation scores may use different data and evaluation settings.
+### 2.1 Getting Started
 
-## What runs where
+Choose one deployment option.
 
-```text
-Student browser
-    |
-    v
-Brev Secure Link -> nginx gateway
-    |
-    +-- Open WebUI --------------------------> local Qwen / vLLM
-    |   Model-only chat
-    |
-    +-- Paseo / VS Code -> OpenCode agent ---> local Qwen / vLLM
-    |                         |
-    |                         +-- workspace, skills, and research records
-    |                         +-- admitted jobs -> training container
-    |
-    +-- MIAgent Viewer ----------------------> documents and predictions
-    +-- MLflow / TensorBoard ----------------> tracking container
+#### 2.1.1 NVIDIA Brev
+
+Launch the prepared lab on **NVIDIA Brev**. Containers, models, and workshop data are set up automatically; no local installation is needed.
+
+[Launch the workshop on NVIDIA Brev](https://brev.nvidia.com/launchable/deploy?launchableID=env-3MIzGrvs6pS6xTRNoQXVRPiFLOl).
+
+When ready, open **Secure Link → Paseo** and begin **lesson 01**. The introduction opens automatically; use its prompts to start the CAS and CHD tasks.
+
+Instructors: see [Launchable configuration and readiness checks](lab_prep/SETUP.md).
+
+#### 2.1.2 Self-host on your own machine
+
+**Requirements:**
+
+- Linux GPU machine with NVIDIA driver and Container Toolkit.
+- GPU tested: RTX PRO 6000 Blackwell, 96 GB VRAM.
+- **RAM: 64 GB or more.**
+- Docker Engine, Docker Compose, Git, and Python 3.
+
+```bash
+git clone https://github.com/Project-MONAI/rsna-2026-workshop.git
+cd rsna-2026-workshop
+python3 -u lab_prep/setup_lab.py \
+  --prepare-data --spacing-mm 2 --unknown-labels background
 ```
 
-| Service | Responsibility |
-| --- | --- |
-| `gateway` | nginx entry point. The default published host port is **8088**, accessed through the configured Brev Secure Link. |
-| `chat` | Open WebUI configured for model-only conversation, with search, code execution, and external tools disabled. |
-| `paseo` | Browser workspace for interacting with OpenCode agents and viewing lab files. |
-| `miagent` | CPU control environment containing VS Code, OpenCode, workflow instructions, tools, viewers, and job submission. |
-| `llm` | Local Qwen inference served by vLLM through an internal OpenAI-compatible API. |
-| `training` | GPU scientific environment with PyTorch, MONAI, and the training/evaluation dependencies. |
-| `tracking` | MLflow and TensorBoard for experiment tracking. |
-| `lab-init` | One-time initialization of the persistent lab workspace and runtime volumes. |
+Open **http://localhost:8088 → Paseo** and begin **lesson 01**. For existing datasets, custom hostnames, and troubleshooting, see the [setup guide](lab_prep/SETUP.md).
 
-The full service definitions are in [docker-compose.yml](MIAgent/docker-compose.yml).
+### 2.2 Containers
 
-### What is isolated, and what is shared?
+The gateway connects the browser to the lab. The agent calls Qwen, submits GPU jobs, and saves files and results in shared mounts.
 
-- **Service environments:** containers separate processes and installed dependencies. The agent's control environment and the GPU training environment have different jobs.
-- **Dataset access:** selected services mount the host dataset directory at `/data` as read-only. Experiments write outputs into the workspace rather than modifying those input files.
-- **Persistent state:** selected services share `/workspace`, `/runtime`, and `/cache` through Docker volumes. The model server has a separate Hugging Face cache volume. Tracking mounts `/workspace` read-only.
-- **GPU capacity:** model inference and scientific training use the same host GPU resources. Separate containers do not reserve independent GPUs or eliminate memory contention.
-- **Networking:** services communicate over the Compose network through internal endpoints. The gateway provides the normal browser entry point.
+[![Workshop container architecture: browser through nginx gateway to Paseo, MIAgent, and Open WebUI; local vLLM/Qwen inference, GPU training, tracking, initialization, and shared mounts](docs/images/workshop-containers.png)](docs/images/workshop-containers.png)
 
-**This is operational separation, not a security sandbox against an untrusted agent.** The `miagent` and `paseo` services mount the host Docker socket, which gives the agent powerful access to the host's Docker environment. The LLM service also uses host IPC. Read-only dataset mounts and separate containers must be interpreted in that context. Brev and the VM's network configuration provide the intended access control for this trusted student lab.
+- **gateway:** nginx entry point, port 8088.
+- **paseo:** browser workspace and OpenCode agent chat.
+- **miagent:** VS Code, agent tools, and viewers.
+- **chat:** Open WebUI for model-only chat.
+- **llm:** local Qwen inference via vLLM.
+- **training:** GPU execution with PyTorch and MONAI.
+- **tracking:** MLflow and TensorBoard.
+- **lab-init:** initializes workspace and runtime volumes.
 
-## Skills: reuse tools instead of rebuilding them
+See [Docker Compose](MIAgent/docker-compose.yml) for service connections and mounts.
 
-MIAgent includes workflow guidance and medical imaging skills that tell the agent when to use a tool, what inputs it needs, how to invoke it, and what outputs to inspect.
+### 2.3 Isolation and shared resources
 
-Examples include DICOM utilities, MONAI workflows, pretrained segmentation, and segmentation fine-tuning. Browse the [local skills](MIAgent/skills/) and the upstream [NVIDIA Medtech Medical AI Skills catalog](https://github.com/NVIDIA-Medtech/medical-AI-skills).
+**Separate:** processes, installed dependencies, and container filesystems. **Shared:** The Compose network, explicitly mounted files, and host GPU capacity. Selected services share `/workspace`, `/runtime`, and `/cache`; selected services mount `/data` read-only. Tracking reads `/workspace` read-only, and the model server has its own Hugging Face cache volume.
 
-Skills guide the LLM without updating its weights. A training tool called by the agent can separately update an imaging model. An upstream skill being listed does not mean all its dependencies and weights are ready in this lab; check the preparation status documented in the setup guide.
+This is operational separation, not a security sandbox: the agent environments mount the Docker socket, and the LLM service uses host IPC. Inference and training also share GPU resources, so container boundaries do not eliminate memory contention.
 
-## Follow the evidence
+## 3. Lab Walkthrough
 
-Each challenge has a durable research folder. Use these records to understand the work beyond the chat transcript:
+The lab includes two cardiac CT segmentation tasks. They demonstrate two ways to guide the same workflow: let the agent investigate a problem, or give it a specific experiment sequence. Use the launch prompts in lesson 01 to try them yourself.
 
-| Record | Question it answers |
-| --- | --- |
-| `challenge.md` | What are the task, data, split, metric, and rules? |
-| `literature.md` and `critics/` | What research supports the approach, and which assumptions remain weak? |
-| `candidates.md` | Which alternatives were considered and why was a direction selected? |
-| `trajectory.md` | Which consequential agent decisions or human instructions changed the direction? |
-| `dashboard.md` and `state.md` | What is running, what is the current focus, and what evidence is needed next? |
-| `baselines/<baseline>/baseline.md` | What is the implementation plan for the selected direction? |
-| `baselines/<baseline>/runs/<experiment>/experiment.md` | What was the pre-run intent, what happened, and what decision followed? |
-| `result_viewers/result_viewer.html` inside a run | What do the saved predictions look like on individual cases? |
+The screenshots show recorded runs. Click an image to open it at full size.
 
-Compare prediction, ground truth, and difference overlays across cases. A single case's Dice score is not the aggregate validation result. Use MLflow and TensorBoard alongside the saved experiment records to connect curves and checkpoints to the reported outcome.
+### 3.1 ImageCAS: follow the research into the experiment
 
-## Start the lab
+Open **`literature.md`** to see which task characteristics the agent identified, which papers and implementations it considered, and how the evidence affected its proposed solution. Continue into `candidates.md`, the critique, and the experiment records to check whether the implementation follows that reasoning.
 
-### Students
+[![ImageCAS literature survey linking research findings to primary sources, available implementations, and their effect on the proposed approach](MIAgent/lab/images/cas_literature_2.png)](MIAgent/lab/images/cas_literature_2.png)
 
-1. Open the workshop's Brev Launchable and deploy the assigned environment.
-2. Wait for setup to finish, then open the configured Secure Link.
-3. Open Paseo and start **lesson 01**. The prepared lab normally opens its first lesson in Preview on the first visit.
-4. Start the CAS and CHD agents using the supplied prompts, then continue through the lessons while experiments run.
-5. Use the MIAgent Viewer, MLflow, TensorBoard, and prediction viewers to review the work.
+*The research record connects sources to decisions. Published paper scores can use different data and evaluation settings from this lab; they are context for a choice, not directly comparable lab results.*
 
-### Instructors and operators
+After training, follow the experiment record into the prediction viewer. Compare the saved segmentation against the reference labels in multiple planes and in 3D.
 
-Start with [lab preparation and Brev setup](lab_prep/SETUP.md). It documents the current VM bootstrap, repository authentication, dataset preparation, model downloads, service startup, and access configuration. Configure the public repository as the Brev Source. Brev clones it onto the VM; upload or paste `lab_prep/brev_startup.sh` as the VM setup script to prepare that existing checkout. No GitHub token or second clone is required.
+[![MIAgent showing ImageCAS experiment records and coronary artery segmentation predictions](MIAgent/lab/images/cas_viewer.png)](MIAgent/lab/images/cas_viewer.png)
 
-The machine needs Docker with Compose, NVIDIA GPU support, and sufficient GPU memory and disk for local LLM serving, imaging jobs, model weights, and datasets. Use the setup guide for the supported configuration; this README does not define a tested minimum GPU size.
+*Recorded CAS example: case 95, Dice 0.6966. This is the selected case score, not the aggregate validation result.*
 
-Startup produces a local timing report at `build_reports/startup_timing.json`. Pretrained NV-Segment-CT preparation continues separately in the background; its readiness and timing are recorded separately from the initial lab startup.
+### 3.2 ImageCHD: inspect what the model actually segmented
 
-## Repository map
+Here, the human supplies an explicit plan: try MONAI SegResNet, UNet, and NV-Segment fine-tuning in that order. Follow the smoke test, GPU profiling, and architecture experiments. Check which jobs completed before comparing their results, then use the viewer to examine individual cardiac structures in multiple planes and in 3D.
 
-```text
-MIAgent/        Application, Compose stack, agent instructions, skills, and lessons
-lab_prep/       Host orchestration, dataset preparation, and setup documentation
-data/           Dataset mount root; downloaded data is excluded from Git
-```
+[![ImageCHD SegResNet experiment records and per-case results beside multicolor cardiac segmentation overlays on CT](MIAgent/lab/images/chd_viewer.png)](MIAgent/lab/images/chd_viewer.png)
 
-- [Application and research workflow documentation](MIAgent/README.md)
-- [Student lesson sources](MIAgent/lab/)
-- [Lab setup guide](lab_prep/SETUP.md)
-- [Dataset preparation details](lab_prep/README.md)
-- [Reusable challenge template](MIAgent/challenge/challenge_template/)
+*This recorded CHD example selects case 1140, with Dice 0.6485. Use the Prediction, Ground truth, and Difference controls to investigate the segmentation rather than relying on a score alone.*
 
-This is a research and education lab. Its demonstrations and saved predictions do not establish clinical validity.
+### 3.3 Compare experiment results
 
-## Attribution
+Use **MLflow** to find experiments and inspect their recorded parameters, metrics, and artifacts. Use **TensorBoard** to compare training behavior and validation curves. Connect each curve to its experiment record, selected checkpoint, and saved predictions.
 
-This workshop packages the [MIAgent research workflow](https://github.com/heyufan1995/MIAgent) with browser lessons and a local Docker lab. Third-party tools, models, datasets, and bundled assets retain their respective licenses and usage terms. External-cluster configuration is provided as an example and must be filled in and verified for your own environment.
+[![TensorBoard comparing overall and per-class validation Dice across three recorded cardiac segmentation experiments](MIAgent/containers/gateway/previews/validation-dice.png)](MIAgent/containers/gateway/previews/validation-dice.png)
+
+*Example validation curves from recorded CHD experiments. Check the selected runs, horizontal axis, and smoothing before interpreting a comparison. A case score and an aggregate validation metric answer different questions.*
