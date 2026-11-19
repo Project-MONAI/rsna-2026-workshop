@@ -11,7 +11,7 @@ import { getOrCreateServerId } from "/usr/local/lib/node_modules/@getpaseo/serve
 
 const logger = { child() { return this; }, info() {}, warn: console.warn, error: console.error };
 
-export function browserDefaultsBootstrap(model) {
+export function browserDefaultsBootstrap(model, workspaceKey, introFile = "01_overview.html") {
   return `<script>{
     try{
       const storage=window.localStorage,marker="miagent:browser-defaults:v1";
@@ -26,6 +26,43 @@ export function browserDefaultsBootstrap(model) {
       }
       const panels=read("panel-state"),state=panels.state||{};
       storage.setItem("panel-state",JSON.stringify({...panels,version:panels.version??16,state:{...state,desktop:{...state.desktop,agentListOpen:false}}}));
+      const workspaceKey=${JSON.stringify(workspaceKey)},intro=${JSON.stringify(introFile)};
+      const layoutMarker="miagent:workspace-layout:v1:"+workspaceKey;
+      if(workspaceKey&&storage.getItem(layoutMarker)!=="seeded"){
+        const settings=read("@paseo:app-settings");
+        storage.setItem("@paseo:app-settings",JSON.stringify({...settings,openInSidePane:{...settings.openInSidePane,explorerFiles:true,chatFiles:true}}));
+        const saved=read("workspace-layout-state"),layouts=saved.state||{};
+        const previous=layouts.layoutByWorkspace?.[workspaceKey];
+        const tabs=[],seen=new Set();
+        const collect=node=>{if(node?.kind==="pane"){for(const tab of node.pane.tabs||[]){if(!seen.has(tab.tabId)){seen.add(tab.tabId);tabs.push(tab)}}}else if(node?.kind==="group"){node.group.children.forEach(collect)}};
+        collect(previous?.root);
+        const now=Date.now(),tab=(tabId,target)=>({tabId,target,createdAt:now});
+        const documents=tabs.filter(tab=>tab.target.kind==="file");
+        const main=tabs.filter(tab=>!["file","files","changes_tree"].includes(tab.target.kind));
+        const explorer=tabs.filter(tab=>["files","changes_tree"].includes(tab.target.kind));
+        if(!main.length)main.push(tab("miagent-new-chat",{kind:"new_tab"}));
+        if(intro&&!documents.length)documents.push(tab("file_lab/"+intro,{kind:"file",path:"lab/"+intro}));
+        if(!documents.length)documents.push(tab("miagent-new-document",{kind:"new_tab"}));
+        if(!explorer.some(tab=>tab.target.kind==="files"))explorer.push(tab("files",{kind:"files"}));
+        if(!explorer.some(tab=>tab.target.kind==="changes_tree"))explorer.push(tab("changes_tree",{kind:"changes_tree"}));
+        const pane=(id,tabs,focusedTabId=tabs[0].tabId)=>({kind:"pane",pane:{id,tabs,tabIds:tabs.map(tab=>tab.tabId),focusedTabId}});
+        const chat=main.find(tab=>tab.target.kind==="agent"||tab.target.kind==="draft")||main[0];
+        const layout={root:{kind:"group",group:{id:"workspace-root",direction:"horizontal",sizes:[0.8,0.2],children:[
+          {kind:"group",group:{id:"miagent-work",direction:"horizontal",sizes:[0.45,0.55],children:[pane("main",main,chat.tabId),pane("miagent-documents",documents)]}},
+          pane("explorer",explorer,"files")
+        ]}},focusedPaneId:"main",parentTabIdByTabId:previous?.parentTabIdByTabId||{}};
+        const splitSizes={...layouts.splitSizesByWorkspace};delete splitSizes[workspaceKey];
+        storage.setItem("workspace-layout-state",JSON.stringify({...saved,version:2,state:{...layouts,
+          layoutByWorkspace:{...layouts.layoutByWorkspace,[workspaceKey]:layout},
+          splitSizesByWorkspace:splitSizes,
+          explorerPaneIdByWorkspace:{...layouts.explorerPaneIdByWorkspace,[workspaceKey]:"explorer"},
+          explorerSidebarPaneIdByWorkspace:{...layouts.explorerSidebarPaneIdByWorkspace,[workspaceKey]:"explorer"},
+          explorerSidebarWidthByWorkspace:{...layouts.explorerSidebarWidthByWorkspace,[workspaceKey]:260},
+          sidePaneIdByWorkspace:{...layouts.sidePaneIdByWorkspace,[workspaceKey]:"miagent-documents"}
+        }}));
+        storage.setItem("panel-state",JSON.stringify({...panels,version:panels.version??16,state:{...state,desktop:{...state.desktop,agentListOpen:false,focusModeEnabled:false}}}));
+        storage.setItem(layoutMarker,"seeded");
+      }
     }catch(error){console.warn("[miagent-paseo] Could not seed browser defaults",error)}
   }</script>`;
 }
@@ -154,6 +191,15 @@ export async function configureWorkspace(home, cwd, sourceUi, targetUi) {
     let selected=window.location.pathname===route,composer=false,requested=false,menu=false,expanded=false,provider=false,chosen=false,pending=false;
     const ready=element=>element&&element.getAttribute("aria-disabled")!=="true"&&!element.disabled;
     const closed=new Set();
+    const finish=()=>{
+      observer.disconnect();clearInterval(timer);window.WebSocket=NativeWebSocket;
+      try{
+        if(window.innerWidth>=900&&JSON.parse(window.localStorage.getItem("panel-state")||"{}").state?.desktop?.agentListOpen){
+          document.querySelector('[data-testid="menu-button"]')?.click();
+        }
+      }catch{}
+      window.__MIAGENT_COMPOSER_READY__=true;
+    };
     const open=()=>{
       const host=window.location.pathname.match(/^\\/h\\/([^/]+)(?:\\/|$)/);
       if(host&&decodeURIComponent(host[1])!==${JSON.stringify(serverId)})selected=false;
@@ -161,7 +207,7 @@ export async function configureWorkspace(home, cwd, sourceUi, targetUi) {
         const sheet=Array.from(document.querySelectorAll('[data-testid="agent-controls-model-browser-sheet"],[data-testid="agent-controls-model-sheet"]')).reverse().find(element=>!closed.has(element.dataset.testid));
         const close=sheet&&sheet.parentElement.querySelector('[aria-label="Close"]');
         if(close){closed.add(sheet.dataset.testid);close.click();schedule()}
-        else{observer.disconnect();clearInterval(timer);window.WebSocket=NativeWebSocket;window.__MIAGENT_COMPOSER_READY__=true}
+        else{finish()}
         return;
       }
       const row=document.querySelector(${JSON.stringify(selector)});
@@ -170,7 +216,7 @@ export async function configureWorkspace(home, cwd, sourceUi, targetUi) {
       if(selected&&!composer&&ready(agent)){requested=true;agent.click();return}
       const trigger=document.querySelector('[data-testid="combined-model-selector"]');
       if(selected&&!composer&&trigger&&!requested){
-        observer.disconnect();clearInterval(timer);window.WebSocket=NativeWebSocket;window.__MIAGENT_COMPOSER_READY__=true;return;
+        finish();return;
       }
       if(selected&&trigger)composer=true;
       if(!composer)return;
@@ -216,7 +262,8 @@ export async function configureWorkspace(home, cwd, sourceUi, targetUi) {
     }
   }
   const preview = introFile ? labPreviewBootstrap(route, `miagent:lab-intro:${serverId}`, introFile) : "";
-  const defaults = browserDefaultsBootstrap(process.env.OPENCODE_MODEL ?? "miagent-llm/Qwen/Qwen3.8-27B-FP8");
+  const defaults = browserDefaultsBootstrap(process.env.OPENCODE_MODEL ?? "miagent-llm/Qwen/Qwen3.8-27B-FP8",
+    `${serverId}:${workspace.workspaceId}`, introFile ?? null);
   await fs.writeFile(path.join(targetUi, "index.html"), html.replace("</head>", defaults + staleRouteBootstrap(serverId) + redirect + preview + "</head>"));
   console.log(`[miagent-paseo] Lab project ready: ${cwd}; workspace=${workspace.workspaceId}`);
   return { project, workspace, serverId, route };

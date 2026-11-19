@@ -38,6 +38,34 @@ assert.equal(read('panel-state').state.desktop.focusModeEnabled, true, 'Other pa
 assert.equal(read('panel-state').state.sidebarWidth, 400);
 vm.runInNewContext(script(defaults('local-qwen')), {window:{localStorage:storage()},console});
 
+// One-time layout migration preserves chats, file tabs, unrelated workspaces,
+// and later user resizing. This state is consumed by native Paseo, not a DOM clone.
+const workspaceKey = 'srv_lab:wks_initial';
+const oldTab = (tabId,target) => ({tabId,target,createdAt:1});
+const oldTabs = [oldTab('agent_existing',{kind:'agent',agentId:'existing'}),
+  oldTab('file_notes.md',{kind:'file',path:'notes.md'})];
+const layoutStorage = storage({'workspace-layout-state':JSON.stringify({version:2,state:{
+  layoutByWorkspace:{[workspaceKey]:{root:{kind:'pane',pane:{id:'old',tabs:oldTabs,tabIds:oldTabs.map(t=>t.tabId),focusedTabId:'agent_existing'}},focusedPaneId:'old'},
+    unrelated:{root:{kind:'pane',pane:{id:'other',tabs:[],tabIds:[],focusedTabId:null}},focusedPaneId:'other'}},
+  splitSizesByWorkspace:{[workspaceKey]:{old:[0.1,0.9]},unrelated:{other:[0.3,0.7]}},
+}})});
+const runLayout = () => vm.runInNewContext(script(defaults('local-qwen',workspaceKey)),{window:{localStorage:layoutStorage},console});
+runLayout();
+const migrated = JSON.parse(layoutStorage.getItem('workspace-layout-state'));
+const work = migrated.state.layoutByWorkspace[workspaceKey].root.group;
+assert.equal(work.direction,'horizontal');
+assert.equal(work.children[0].group.children[0].pane.tabs[0].tabId,'agent_existing');
+assert.equal(work.children[0].group.children[1].pane.tabs[0].tabId,'file_notes.md');
+assert.equal(work.children[1].pane.focusedTabId,'files');
+assert.equal(migrated.state.sidePaneIdByWorkspace[workspaceKey],'miagent-documents');
+assert.equal(migrated.state.layoutByWorkspace.unrelated.focusedPaneId,'other');
+assert.deepEqual(migrated.state.splitSizesByWorkspace.unrelated,{other:[0.3,0.7]});
+assert.equal(JSON.parse(layoutStorage.getItem('@paseo:app-settings')).openInSidePane.explorerFiles,true);
+migrated.state.layoutByWorkspace[workspaceKey].root.group.sizes=[0.7,0.3];
+layoutStorage.setItem('workspace-layout-state',JSON.stringify(migrated));
+runLayout();
+assert.deepEqual(JSON.parse(layoutStorage.getItem('workspace-layout-state')).state.layoutByWorkspace[workspaceKey].root.group.sizes,[0.7,0.3]);
+
 const route = '/h/srv_lab/workspace/wks_initial';
 function previewFixture(pathname, ready=true) {
   const frames = [];

@@ -29,6 +29,8 @@ COPY containers/paseo/configure_local_provider.py /usr/local/bin/miagent-paseo-s
 COPY containers/paseo/start.sh /usr/local/bin/miagent-paseo-start
 COPY containers/paseo/configure_workspace.mjs /usr/local/bin/miagent-paseo-workspace.mjs
 COPY containers/paseo/configure_terminal.py /usr/local/bin/miagent-paseo-terminal
+COPY containers/paseo/patch_file_tabs.py /usr/local/bin/miagent-paseo-file-tabs
+RUN python3 /usr/local/bin/miagent-paseo-file-tabs /usr/local/lib/node_modules/@getpaseo/server
 COPY containers/miagent/ll /usr/local/bin/ll
 RUN chmod 0755 /usr/local/bin/miagent-paseo-start
 RUN chmod 0755 /usr/local/bin/ll

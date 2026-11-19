@@ -4,7 +4,9 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 (async () => {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true,
+    ...(process.env.PASEO_TEST_BROWSER_EXECUTABLE ? {executablePath:process.env.PASEO_TEST_BROWSER_EXECUTABLE} : {}),
+  });
   try {
     for (const viewport of [{ width: 1365, height: 900 }, { width: 390, height: 844 }]) {
       const context = await browser.newContext({ viewport,
@@ -44,6 +46,36 @@ const path = require('node:path');
         if (await prompt.count()) await prompt.first().click({ timeout: 5000 });
         console.log(`Paseo first-run passed: ${viewport.width}px, MIAgent workspace, lab introduction in Preview mode`);
         if (viewport.width > 600) {
+          const chat = page.getByTestId('workspace-pane-main');
+          const documents = page.getByTestId('workspace-pane-miagent-documents');
+          const explorer = page.getByTestId('workspace-explorer-sidebar');
+          const chatBox = await chat.boundingBox();
+          const documentBox = await documents.boundingBox();
+          const explorerBox = await explorer.boundingBox();
+          assert.ok(chatBox && documentBox && explorerBox);
+          assert.ok(chatBox.x < documentBox.x && documentBox.x < explorerBox.x,
+            'Chat, document tabs, and Files must appear left to right');
+          assert.ok(Math.abs(chatBox.y-documentBox.y)<10, 'Chat and documents must share a horizontal split');
+          assert.equal(await page.getByTestId('menu-button').getAttribute('aria-label'),'Open menu');
+          const chatTab = await chat.getByRole('button',{name:'New Agent',exact:true}).getAttribute('data-testid');
+          const fileRows = explorer.locator('[data-testid^="file-explorer-row-"][data-testid$="-name"]');
+          await fileRows.filter({hasText:/^opencode\.json$/}).click();
+          await documents.getByTestId('workspace-tab-file_opencode.json').waitFor();
+          await documents.getByTestId('workspace-tab-file_lab/01_overview.html').waitFor();
+          await fileRows.filter({hasText:/^lab$/}).click();
+          await fileRows.filter({hasText:/^03_MIAgent_workflow\.html$/}).click();
+          await documents.getByTestId('workspace-tab-file_lab/03_MIAgent_workflow.html').waitFor();
+          assert.equal(await documents.getByTestId('workspace-tab-file_opencode.json').count(),1);
+          assert.equal(await documents.getByTestId('workspace-tab-file_lab/01_overview.html').count(),1);
+          assert.equal(await chat.getByTestId(chatTab).count(),1,'File selections must retain the existing chat');
+          await page.reload({waitUntil:'domcontentloaded'});
+          await documents.getByTestId('workspace-tab-file_lab/03_MIAgent_workflow.html').waitFor();
+          await page.waitForFunction(()=>window.__MIAGENT_COMPOSER_READY__===true);
+          assert.equal(await documents.getByTestId('workspace-tab-file_opencode.json').count(),1,'Separate file tabs survive reload');
+          assert.equal(await page.getByTestId('menu-button').getAttribute('aria-label'),'Open menu');
+          await page.screenshot({path:path.join(process.env.PASEO_SCREENSHOT_DIR || '/tmp','paseo-file-tabs.png'),fullPage:true});
+          console.log('Paseo file tabs passed: hidden agent list, horizontal layout, retained chat, distinct file tabs, reload');
+          await page.getByTestId('menu-button').click();
           await page.getByRole('button', { name: 'New workspace', exact: true }).click();
           await page.waitForURL(/\/new\?/, { timeout: 15000 });
           await page.getByTestId('combined-model-selector').filter({visible:true}).last().click();

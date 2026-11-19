@@ -50,6 +50,17 @@ need a new session to inherit the defaults.
 Paseo starts with the left workspace/session sidebar hidden on each page load,
 including returning browsers. Students can reopen it while working; other
 saved panel preferences and sessions are preserved.
+The workshop workspace uses a horizontal desktop layout: the agent composer or
+existing chat on the left, document tabs in the middle, and Files on the right.
+The layout is seeded once per browser and workshop workspace, preserving
+existing chats, file tabs, unrelated workspaces, and later resizing. Files
+selected in the explorer open in the document pane as separate tabs instead of
+replacing the current preview. Mobile retains Paseo's native compact layout.
+`containers/paseo/patch_file_tabs.py` applies the small preview-tab adjustment
+while building the image. It checks Paseo 0.9.2 and the expected vendor code,
+and fails the build if either changes. Review the patch when upgrading Paseo;
+the 0.13.1 patch from another project is not used here. A separate asset URL
+prevents browsers from reusing the unpatched cached bundle.
 On the first visit to the lab workspace in a browser, Paseo expands `lab/`
 and opens `01_overview.html` in Preview mode. Its screenshots are embedded,
 so the lesson does not require a separate images folder. A
