@@ -1,0 +1,51 @@
+profile: example
+owner: Replace With Name
+username: replace_with_cluster_username
+
+local:
+  repo_root: /path/to/MIAgent
+
+external_llm_critics:
+  nvidia_claude:
+    display_name: NVIDIA Claude external critic
+    endpoint: https://inference-api.nvidia.com/v1/chat/completions
+    model: aws/anthropic/bedrock-claude-opus-4-6
+    api_key_env: NVIDIA_API_KEY
+    api_key_file: ~/.config/miagent/nvidia_inference_api_key
+    default_max_tokens: 4096
+    default_temperature: 0.2
+    role: harsh_idea_critic
+
+clusters:
+  dfw:
+    default_host: dfw-login.example.invalid
+    ssh_identity: ~/.ssh/id_ed25519_dfw
+    account: your_slurm_account
+    paths:
+      dataset_root: /cluster/shared/users/replace_with_cluster_username/MIAgent/dataset
+      miagent_root: /cluster/shared/users/replace_with_cluster_username/MIAgent
+    container:
+      image: /cluster/shared/users/replace_with_cluster_username/cache/<container-image>.sqsh
+      mount: /cluster/shared/:/home
+      python: <python-path-inside-container>
+      host_to_container_path:
+        host_prefix: /cluster/shared
+        container_prefix: /home
+
+  draco:
+    default_host: draco-login.example.invalid
+    ssh_identity: ~/.ssh/id_ed25519_draco
+    account: your_slurm_account
+    paths:
+      dataset_root: /cluster/shared/users/replace_with_cluster_username/MIAgent/dataset
+      miagent_root: /cluster/shared/users/replace_with_cluster_username/MIAgent
+    container:
+      image: null
+      mount: null
+      python: null
+
+notes:
+  - Copy this file to profiles/<name>.yaml and replace the placeholders before running jobs for a teammate.
+  - Keep secrets out of profiles. SSH key paths are fine; private key contents are not.
+  - Container images are personal or team-maintained artifacts. Probe the image path and Python path before using them.
+  - Any path copied from another user must be re-probed before use.

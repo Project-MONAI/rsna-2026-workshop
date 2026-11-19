@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MIAgent v3.3 overview</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5f6c72;
+      --line: #dbe3e6;
+      --paper: #f8faf9;
+      --white: #ffffff;
+      --blue: #2563eb;
+      --teal: #0f766e;
+      --green: #15803d;
+      --amber: #b45309;
+      --rose: #be123c;
+      --violet: #6d28d9;
+      --shadow: 0 16px 40px rgba(23, 32, 38, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      overflow: hidden;
+    }
+
+    .wrap {
+      width: min(1160px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      min-height: 88vh;
+      display: grid;
+      align-items: center;
+      background: #f3f7f6;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 48px;
+      align-items: center;
+      padding: 72px 0;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 18px;
+      color: var(--teal);
+      font-weight: 750;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      font-size: 13px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--teal);
+      display: inline-block;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 720px;
+      font-size: clamp(42px, 7vw, 82px);
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      margin: 24px 0 0;
+      max-width: 660px;
+      color: var(--muted);
+      font-size: clamp(18px, 2.2vw, 22px);
+    }
+
+    .hero-panel {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    .hero-panel h2,
+    .section-title h2,
+    .panel h3,
+    .file h3,
+    .step h3 {
+      letter-spacing: 0;
+    }
+
+    .hero-panel h2 {
+      margin: 0 0 18px;
+      font-size: 20px;
+    }
+
+    .principle {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 14px;
+      align-items: start;
+      padding: 14px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .principle:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 800;
+      font-size: 17px;
+    }
+
+    .icon.teal { background: var(--teal); }
+    .icon.blue { background: var(--blue); }
+    .icon.amber { background: var(--amber); }
+
+    .principle strong {
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .principle span {
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    section {
+      padding: 72px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-title {
+      display: grid;
+      grid-template-columns: minmax(0, 0.7fr) minmax(260px, 0.3fr);
+      gap: 32px;
+      align-items: end;
+      margin-bottom: 32px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.05;
+    }
+
+    .section-title p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .flow-step {
+      position: relative;
+      min-height: 150px;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 10px 24px rgba(23, 32, 38, 0.05);
+    }
+
+    .flow-step::after {
+      content: ">";
+      position: absolute;
+      top: 50%;
+      right: -11px;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-weight: 800;
+      z-index: 2;
+    }
+
+    .flow-step:last-child::after {
+      display: none;
+    }
+
+    .flow-step b {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .flow-step strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .flow-step span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .flow-step:nth-child(1) { border-top: 5px solid var(--blue); }
+    .flow-step:nth-child(2) { border-top: 5px solid var(--teal); }
+    .flow-step:nth-child(3) { border-top: 5px solid var(--violet); }
+    .flow-step:nth-child(4) { border-top: 5px solid var(--amber); }
+    .flow-step:nth-child(5) { border-top: 5px solid var(--green); }
+    .flow-step:nth-child(6) { border-top: 5px solid var(--rose); }
+
+    .grid-2,
+    .grid-3 {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .panel,
+    .file,
+    .step {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: 0 10px 24px rgba(23, 32, 38, 0.05);
+    }
+
+    .panel h3,
+    .file h3,
+    .step h3 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .panel p,
+    .file p,
+    .step p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .gate {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .gate-mark {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: #eef6ff;
+      color: var(--blue);
+      font-weight: 900;
+      font-size: 22px;
+    }
+
+    .auto .gate-mark {
+      background: #fef3c7;
+      color: var(--amber);
+    }
+
+    .tree {
+      background: #101820;
+      color: #e8f2f1;
+      border-radius: 8px;
+      padding: 24px;
+      overflow: auto;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 14px;
+      line-height: 1.65;
+      box-shadow: var(--shadow);
+    }
+
+    .tree .muted {
+      color: #97aaa9;
+    }
+
+    .file-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .file {
+      min-height: 170px;
+      border-top: 5px solid var(--line);
+    }
+
+    .file.challenge { border-top-color: var(--blue); }
+    .file.dashboard { border-top-color: var(--teal); }
+    .file.candidates { border-top-color: var(--violet); }
+    .file.literature { border-top-color: var(--amber); }
+    .file.baseline { border-top-color: var(--green); }
+    .file.experiment { border-top-color: var(--rose); }
+    .file.viewer { border-top-color: #ca8a04; }
+
+    .read-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .read-item {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .read-item b {
+      display: block;
+      color: var(--teal);
+      margin-bottom: 8px;
+    }
+
+    .read-item code,
+    .prompt code {
+      white-space: normal;
+    }
+
+    code,
+    pre {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    code {
+      background: #eef3f3;
+      border: 1px solid #d9e3e3;
+      border-radius: 6px;
+      padding: 2px 5px;
+      color: #17313a;
+      font-size: 0.92em;
+    }
+
+    .prompt {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .prompt pre {
+      margin: 12px 0 0;
+      white-space: pre-wrap;
+      color: #0f172a;
+      background: #f1f5f4;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .footer {
+      padding: 36px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .note {
+      border-left: 5px solid var(--amber);
+      background: #fffbeb;
+      padding: 18px 20px;
+      border-radius: 8px;
+      color: #713f12;
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid,
+      .section-title,
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .flow {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .flow-step::after {
+        display: none;
+      }
+
+      .file-grid,
+      .read-strip {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .wrap {
+        width: min(100% - 28px, 1160px);
+      }
+
+      .hero {
+        min-height: auto;
+      }
+
+      .hero-grid {
+        padding: 48px 0;
+      }
+
+      section {
+        padding: 48px 0;
+      }
+
+      .flow,
+      .file-grid,
+      .read-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow"><span class="dot"></span> MIAgent v3.3 design overview</p>
+          <h1>MIAgent helps Codex run medical-imaging challenges with human steering.</h1>
+          <p>
+            The design keeps the agent focused on one serious solution direction at a time,
+            while leaving enough trace for humans to verify data, baselines, jobs, results,
+            and next experiments.
+          </p>
+        </div>
+        <aside class="hero-panel" aria-label="Core principles">
+          <h2>Four ideas to remember</h2>
+          <div class="principle">
+            <div class="icon teal">1</div>
+            <div>
+              <strong>The folder is the durable owner</strong>
+              <span>One active Codex session at a time operates the challenge record and one solution direction.</span>
+            </div>
+          </div>
+          <div class="principle">
+            <div class="icon blue">2</div>
+            <div>
+              <strong>Humans steer at gates</strong>
+              <span>Without <code>:/auto</code>, Codex stops after candidate selection and after the implementation plan.</span>
+            </div>
+          </div>
+          <div class="principle">
+            <div class="icon amber">3</div>
+            <div>
+              <strong>State guides; dashboard executes</strong>
+              <span>The current focus stays in state.md; jobs, results, readiness, and resources stay in dashboard.md.</span>
+            </div>
+          </div>
+          <div class="principle">
+            <div class="icon blue">4</div>
+            <div>
+              <strong>Human taste is reusable</strong>
+              <span>Full steering stays beside the decision; trajectory.md links consequential decisions across stages.</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-title">
+          <h2>The challenge loop</h2>
+          <p>README stays high-level. The detailed router lives in <code>skills/orchestration/challenge_run_workflow.md</code>.</p>
+        </div>
+        <div class="flow" aria-label="MIAgent challenge workflow">
+          <div class="flow-step">
+            <b>01</b>
+            <strong>Understand task</strong>
+            <span>Record rules, data, metric, split, evaluator, and missing human-only facts.</span>
+          </div>
+          <div class="flow-step">
+            <b>02</b>
+            <strong>Find baselines</strong>
+            <span>Use literature search, local skills, code/checkpoint checks, and external critic.</span>
+          </div>
+          <div class="flow-step">
+            <b>03</b>
+            <strong>Choose direction</strong>
+            <span>Human selects one candidate, or <code>:/auto</code> lets Codex choose when safe.</span>
+          </div>
+          <div class="flow-step">
+            <b>04</b>
+            <strong>Plan implementation</strong>
+            <span>Write the concrete pipeline, GPU profile plan, and Exploration Map in <code>baseline.md</code>.</span>
+          </div>
+          <div class="flow-step">
+            <b>05</b>
+            <strong>Run experiments</strong>
+            <span>Each planned run has an immutable <code>experiment.md</code> Intent; profile the representative path before expensive training.</span>
+          </div>
+          <div class="flow-step">
+            <b>06</b>
+            <strong>Analyze results</strong>
+            <span>Append the viewer-backed Outcome, update the Exploration Map, and keep <code>state.md</code> focused.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-title">
+          <h2>Human gates</h2>
+          <p>The command system is intentionally small. Natural language is always allowed.</p>
+        </div>
+        <div class="grid-2">
+          <div class="panel gate">
+            <div class="gate-mark">?</div>
+            <div>
+              <h3>Default interactive mode</h3>
+              <p>
+                Codex asks questions when task facts, data access, evaluator validity, rules,
+                or compute approval are unclear. It stops after baseline candidates and again
+                after the implementation plan.
+              </p>
+            </div>
+          </div>
+          <div class="panel gate auto">
+            <div class="gate-mark">A</div>
+            <div>
+              <h3><code>:/auto</code> mode</h3>
+              <p>
+                Codex can continue end-to-end, but it still must stop for human-only access,
+                ambiguous rules, untrusted evaluators, expensive compute approval, or safety
+                blockers.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-title">
+          <h2>Challenge folder</h2>
+          <p>The folder is small on purpose. Long logs, checkpoints, predictions, and galleries stay as linked artifacts.</p>
+        </div>
+        <div class="tree" aria-label="Challenge folder tree">
+<pre>challenge/&lt;name&gt;/
+  challenge.md       <span class="muted">stable task, data, rules, metric, submission facts</span>
+  state.md           <span class="muted">short current-focus attention reset</span>
+  trajectory.md      <span class="muted">consequential decisions and meaningful direction shifts</span>
+  dashboard.md       <span class="muted">readiness, results, resources, baseline job boards</span>
+  candidates.md      <span class="muted">baseline choices and human selection</span>
+  literature.md      <span class="muted">problem-wise search evidence and current recomposition</span>
+  critics/           <span class="muted">external critic reports when available</span>
+  shared/
+    visualization/   <span class="muted">task-specific renderer shared by all baselines</span>
+  baselines/
+    baseline001_&lt;method&gt;/
+      baseline.md
+      config/
+      code/
+      env/
+      runs/
+        exp001_smoke/
+          experiment.md
+          result_viewer.html
+          jobs/
+        exp002_&lt;change&gt;/
+          experiment.md
+          result_viewer.html
+          jobs/</pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-title">
+          <h2>What each file does</h2>
+          <p>Each file has a clear owner. This prevents the agent from scattering state across many logs.</p>
+        </div>
+        <div class="file-grid">
+          <article class="file challenge">
+            <h3>challenge.md</h3>
+            <p>Stable facts: objective, data paths, split, metric, evaluator, rules, submission, and open questions.</p>
+          </article>
+          <article class="file dashboard">
+            <h3>dashboard.md</h3>
+            <p>Shared execution: readiness, current best, target/stop condition, resources, and active, completed, and planned jobs.</p>
+          </article>
+          <article class="file">
+            <h3>state.md</h3>
+            <p>Short attention reset: current focus, needed evidence, protected coverage, active steering, and at most three likely next focuses.</p>
+          </article>
+          <article class="file">
+            <h3>trajectory.md</h3>
+            <p>Append-only index of consequential agent decisions and linked human steering across focus and baseline shifts.</p>
+          </article>
+          <article class="file candidates">
+            <h3>candidates.md</h3>
+            <p>Post-critic baseline choices with evidence, runnable status, risk, and human selection.</p>
+          </article>
+          <article class="file literature">
+            <h3>literature.md</h3>
+            <p>Challenge decomposition, problem-wise search evidence, and recomposition into a unified direction.</p>
+          </article>
+          <article class="file baseline">
+            <h3>baseline.md</h3>
+            <p>The active solution direction: implementation plan, living Exploration Map, GPU evidence, visualization, and acceptance.</p>
+          </article>
+          <article class="file experiment">
+            <h3>experiment.md</h3>
+            <p>One scientific experiment: immutable pre-run Intent, then a viewer-backed Outcome and decision after a valid result.</p>
+          </article>
+          <article class="file viewer">
+            <h3>result_viewer.html</h3>
+            <p>Required initial evidence for every prediction-producing experiment, expanded for key experiments.</p>
+          </article>
+          <article class="file">
+            <h3>Human Steering sections</h3>
+            <p>Decisionful guidance stays in its owning file; trajectory.md links consequential guidance and state.md links what remains active.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-title">
+          <h2>What humans read</h2>
+          <p>Most review happens in these places. The rest is evidence linked from them.</p>
+        </div>
+        <div class="read-strip">
+          <div class="read-item">
+            <b>Before selection</b>
+            <code>candidates.md</code>
+          </div>
+          <div class="read-item">
+            <b>Scientific picture</b>
+            <code>state.md</code>
+          </div>
+          <div class="read-item">
+            <b>Live execution</b>
+            <code>dashboard.md</code>
+          </div>
+          <div class="read-item">
+            <b>Within one method</b>
+            <code>baselines/&lt;baseline&gt;/baseline.md</code>
+          </div>
+          <div class="read-item">
+            <b>For one experiment</b>
+            <code>runs/&lt;exp&gt;/experiment.md</code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-title">
+          <h2>How run mode works</h2>
+          <p>Codex should not wait for one GPU job if approved independent work remains.</p>
+        </div>
+        <div class="grid-3">
+          <div class="step">
+            <h3>1. Read queue</h3>
+            <p>Use this baseline's Planned Jobs block in <code>dashboard.md</code>. Every row points to an <code>experiment.md</code> Intent.</p>
+          </div>
+          <div class="step">
+            <h3>2. Submit in parallel</h3>
+            <p>Submit independent jobs up to the resource budget. Keep Active Jobs current from scheduler evidence.</p>
+          </div>
+          <div class="step">
+            <h3>3. Diagnose terminal jobs</h3>
+            <p>Failed jobs get repaired. Valid results append an Outcome; consequential decisions enter <code>trajectory.md</code>.</p>
+          </div>
+        </div>
+        <p class="note" style="margin-top: 18px;">
+          If no explicit score target is given, the default is to keep improving until the human stops.
+          A plateau triggers targeted re-search and may change direction; a hard resource limit leaves the run blocked.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-title">
+          <h2>Copy-paste start</h2>
+          <p>Use this to demo the intended interaction.</p>
+        </div>
+        <div class="grid-2">
+          <div class="prompt">
+            <strong>Interactive</strong>
+            <pre>Solve this MSD Dataset Task09 Spleen challenge for me (http://medicaldecathlon.com/). Use the first 80% as training and the last 20% as a held-out test set. Make sure test Dice is over 0.98. Use the local machine with 1 GPU and unlimited time.</pre>
+          </div>
+          <div class="prompt">
+            <strong>Auto</strong>
+            <pre>:/auto Solve this MSD Dataset Task09 Spleen challenge for me (http://medicaldecathlon.com/). Use the first 80% as training and the last 20% as a held-out test set. Make sure test Dice is over 0.98. Use the local machine with 1 GPU and unlimited time.</pre>
+          </div>
+        </div>
+        <p class="note" style="margin-top: 18px;">
+          The goal is not to hide the work. The goal is to make Codex do the work with enough trace
+          that humans can judge whether it is solving the right problem.
+        </p>
+      </div>
+    </section>
+  </main>
+  <footer class="footer">
+    <div class="wrap">
+      MIAgent v3.3 overview. Detailed instructions live in the repository skills and templates.
+    </div>
+  </footer>
+</body>
+</html>

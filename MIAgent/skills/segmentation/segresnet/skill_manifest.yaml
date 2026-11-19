@@ -1,0 +1,22 @@
+name: segresnet
+version: 1
+entrypoint: scripts/run_segresnet.py
+runtime:
+  python: ">=3.11"
+  packages:
+    - monai==1.4.0
+    - torch
+    - nibabel
+    - numpy
+    - scipy
+    - PyYAML
+inputs:
+  dataset_contract: dataset.yaml
+  experiment_config: yaml
+outputs:
+  - output.json
+  - checkpoints/best.pt
+  - predictions/*.nii.gz
+  - per_case_dice/per_case_dice.csv
+  - visualization_manifests/visualization_manifest.json
+  - result_viewers/result_viewer.html

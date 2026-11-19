@@ -1,0 +1,14 @@
+submission:
+  format: csv_relative_predictions
+  case_id_column: case_id
+  prediction_path_column: predicted_mask_path
+  prediction_subdir: predictions
+  prediction_suffix: _pred
+  file_ending: .nii.gz
+
+paths:
+  test_manifest: /absolute/path/to/conversion_manifest.yaml
+  prediction_dir: /absolute/path/to/nnunet_predictions
+  submission_dir: /absolute/path/to/submission
+  mode: symlink  # symlink or copy
+  overwrite: false

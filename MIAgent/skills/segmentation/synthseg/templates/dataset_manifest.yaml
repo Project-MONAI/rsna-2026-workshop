@@ -1,0 +1,14 @@
+schema_version: 1
+cases:
+  - case_id: example_train_case
+    split: train
+    image: data/example_train_case/image.nii.gz
+    sources:
+      anatomy: data/example_train_case/anatomy_mask.nii.gz
+      target: data/example_train_case/target_mask.nii.gz
+  - case_id: example_validation_case
+    split: validation
+    image: data/example_validation_case/image.nii.gz
+    sources:
+      anatomy: data/example_validation_case/anatomy_mask.nii.gz
+      target: data/example_validation_case/target_mask.nii.gz

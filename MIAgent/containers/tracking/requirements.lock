@@ -1,0 +1,5 @@
+mlflow==3.1.1
+sqlalchemy==2.0.43
+tensorboard==2.19.0
+# TensorBoard 2.19 imports pkg_resources, removed by newer setuptools.
+setuptools==80.9.0

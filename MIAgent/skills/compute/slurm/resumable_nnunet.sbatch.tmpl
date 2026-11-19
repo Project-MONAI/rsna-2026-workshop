@@ -1,0 +1,104 @@
+#!/bin/bash
+# Generic resumable nnU-Net job skeleton.
+#
+# Copy this into challenge/<name>/baselines/<baseline>/runs/expXXX_<slug>/jobs/ and submit it
+# with explicit profile values, for example:
+#
+#   SBATCH_ACCOUNT="$ACCOUNT" \
+#   SBATCH_PARTITION="$PARTITION" \
+#   SBATCH_OUTPUT="$LOG_DIR/%x_%j.out" \
+#   SBATCH_ERROR="$LOG_DIR/%x_%j.err" \
+#   EXP="$EXP" RUN="$RUN" VENV="$VENV" JOB_SCRIPT="$JOB_SCRIPT" \
+#   DATASET_ID=810 DATASET_NAME=Dataset810_Foo \
+#   sbatch --account "$ACCOUNT" --partition "$PARTITION" \
+#     --output "$LOG_DIR/%x_%j.out" --error "$LOG_DIR/%x_%j.err" \
+#     --export=ALL resumable_nnunet.sbatch.tmpl
+#
+# Account, partition, and log paths are submit-time values so this shared file
+# can be reused across teammates and clusters.
+
+#SBATCH --nodes=1
+#SBATCH --gpus-per-node=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=256G
+#SBATCH -t 4:00:00
+#SBATCH --job-name=nnunet_resume
+#SBATCH --signal=B:USR1@300
+
+set -euo pipefail
+
+# Required challenge-specific variables.
+EXP="${EXP:?Set EXP to the remote experiment directory}"
+RUN="${RUN:?Set RUN to the specific run directory}"
+VENV="${VENV:?Set VENV to the experiment venv}"
+DATASET_ID="${DATASET_ID:?Set DATASET_ID}"
+DATASET_NAME="${DATASET_NAME:?Set DATASET_NAME, for example Dataset797_ISLES22DWIADC}"
+CONFIGURATION="${CONFIGURATION:-3d_fullres}"
+FOLD="${FOLD:-0}"
+TRAINER="${TRAINER:-nnUNetTrainer_50epochs}"
+JOB_SCRIPT="${JOB_SCRIPT:?Set JOB_SCRIPT to this sbatch script path on the cluster}"
+
+mkdir -p "$RUN" "$EXP/state"
+
+export nnUNet_raw="$EXP/nnUNet_raw"
+export nnUNet_preprocessed="$EXP/nnUNet_preprocessed"
+export nnUNet_results="$EXP/nnUNet_results"
+export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-16}"
+export nnUNet_n_proc_DA="${nnUNet_n_proc_DA:-8}"
+
+FOLD_DIR="$nnUNet_results/$DATASET_NAME/${TRAINER}__nnUNetPlans__${CONFIGURATION}/fold_${FOLD}"
+
+resubmit_job() {
+  SBATCH_ARGS=()
+  [ -n "${SBATCH_ACCOUNT:-}" ] && SBATCH_ARGS+=(--account "$SBATCH_ACCOUNT")
+  [ -n "${SBATCH_PARTITION:-}" ] && SBATCH_ARGS+=(--partition "$SBATCH_PARTITION")
+  [ -n "${SBATCH_OUTPUT:-}" ] && SBATCH_ARGS+=(--output "$SBATCH_OUTPUT")
+  [ -n "${SBATCH_ERROR:-}" ] && SBATCH_ARGS+=(--error "$SBATCH_ERROR")
+  sbatch "${SBATCH_ARGS[@]}" --export=ALL "$JOB_SCRIPT"
+}
+
+resubmit_and_exit() {
+  echo "[resumable_nnunet] Wall time approaching; resubmitting $JOB_SCRIPT"
+  date -Is > "$RUN/PREEMPTED_${SLURM_JOB_ID}.txt"
+  resubmit_job
+  [ -n "${TRAIN_PID:-}" ] && kill "$TRAIN_PID" 2>/dev/null || true
+  exit 0
+}
+trap resubmit_and_exit USR1
+
+if [ -f "$RUN/DONE" ]; then
+  echo "[resumable_nnunet] DONE sentinel exists; nothing to do"
+  exit 0
+fi
+
+if [ -f "$FOLD_DIR/checkpoint_final.pth" ]; then
+  echo "[resumable_nnunet] checkpoint_final.pth exists; marking run done"
+  touch "$RUN/DONE"
+  exit 0
+fi
+
+TRAIN_ARGS=("$DATASET_ID" "$CONFIGURATION" "$FOLD" -tr "$TRAINER" -num_gpus 1 --npz)
+if [ -f "$FOLD_DIR/checkpoint_latest.pth" ]; then
+  echo "[resumable_nnunet] Resuming from checkpoint_latest.pth"
+  TRAIN_ARGS+=(--c)
+fi
+
+"$VENV/bin/nnUNetv2_train" "${TRAIN_ARGS[@]}" &
+TRAIN_PID=$!
+wait "$TRAIN_PID"
+EXIT_CODE=$?
+echo "[resumable_nnunet] train exited with code $EXIT_CODE"
+
+if [ "$EXIT_CODE" -ne 0 ]; then
+  exit "$EXIT_CODE"
+fi
+
+if [ ! -f "$FOLD_DIR/checkpoint_final.pth" ]; then
+  echo "[resumable_nnunet] checkpoint_final.pth missing; resubmitting"
+  resubmit_job
+  exit 0
+fi
+
+echo "[resumable_nnunet] training complete"
+touch "$RUN/DONE"

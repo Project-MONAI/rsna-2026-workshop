@@ -1,0 +1,6 @@
+# Additional packages for the SynthSeg extension image. Torch, CUDA, MONAI,
+# NumPy, SciPy, nibabel, pydicom, MLflow, and TensorBoard come from
+# miagent-core:0.1.0 and must not be replaced by this file.
+cornucopia @ git+https://github.com/balbasty/cornucopia.git@8b326481e799bff827cb4e245633631c26db435e
+torch-interpol==0.3.0
+torch-distmap==0.3.0

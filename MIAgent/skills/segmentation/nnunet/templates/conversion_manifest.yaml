@@ -1,0 +1,28 @@
+dataset:
+  id: 999
+  name: Example
+  description: Short task description
+  reference: https://example.org/dataset
+  file_ending: .nii.gz
+  channel_names:
+    "0": channel_0
+  labels:
+    background: 0
+    foreground: 1
+  overwrite_image_reader_writer: null
+
+output:
+  nnunet_raw: /absolute/path/to/nnUNet_raw
+  mode: symlink  # symlink or copy
+  overwrite: false
+
+cases:
+  train:
+    - id: case_001
+      images:
+        - /absolute/path/to/case_001_channel0.nii.gz
+      label: /absolute/path/to/case_001_label.nii.gz
+  test:
+    - id: case_002
+      images:
+        - /absolute/path/to/case_002_channel0.nii.gz

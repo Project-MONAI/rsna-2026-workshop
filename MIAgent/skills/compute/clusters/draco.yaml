@@ -1,0 +1,40 @@
+cluster: draco
+description: Shared Draco SLURM facts for MIAgent challenge runs.
+
+hosts:
+  default: draco-login.example.invalid
+  fallbacks:
+    - draco-login-1.example.invalid
+
+slurm:
+  commands_root: /cm/shared/apps/slurm/current/bin
+  known_accounts:
+    - your_slurm_account
+  partitions:
+    cpu_debug: cpu_interactive
+    cpu_dataprocessing: cpu_long
+    gpu_interactive: interactive
+    gpu_single_or_full_node: batch_singlenode
+    gpu_batch: batch_block1
+    gpu_backfill: backfill_singlenode
+  wall_time:
+    interactive: "4:00:00"
+    batch_singlenode: "4:00:00"
+    batch_block1: "4:00:00"
+    backfill_singlenode: "7-00:00:00"
+    cpu_interactive: "1-00:00:00"
+    cpu_long: "7-00:00:00"
+  commands:
+    queue: squeue --me
+    accounting: sacct -j <job_id> --format=JobID,JobName,State,Elapsed,ExitCode,MaxRSS
+    partitions: sinfo -s
+    nodes: sinfo -Nel
+
+validation:
+  status: requires_profile_probe
+  notes:
+    - Challenge data roots, MIAgent roots, containers, and writable run roots must be confirmed for each teammate profile.
+
+notes:
+  - Cluster-wide facts live here. User-specific SSH identities, challenge data roots, MIAgent roots, and container paths belong in skills/compute/profiles/<profile>.yaml.
+  - Do not reuse DFW values such as /lustre/fsw paths or DFW containers unless a Draco probe confirms them.

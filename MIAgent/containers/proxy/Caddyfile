@@ -1,0 +1,22 @@
+# Each public listener is a Caddy-authenticated proxy. Backend services are
+# intentionally not published directly on the host.
+:8080 {
+	basic_auth {
+		{$DASHBOARD_USER} {$DASHBOARD_PASSWORD_HASH}
+	}
+	reverse_proxy dashboard:5000
+}
+
+:8081 {
+	basic_auth {
+		{$DASHBOARD_USER} {$DASHBOARD_PASSWORD_HASH}
+	}
+	reverse_proxy dashboard:6006
+}
+
+:8082 {
+	basic_auth {
+		{$DASHBOARD_USER} {$DASHBOARD_PASSWORD_HASH}
+	}
+	reverse_proxy dashboard:8765
+}

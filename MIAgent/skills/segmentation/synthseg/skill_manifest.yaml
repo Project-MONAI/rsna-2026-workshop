@@ -1,0 +1,56 @@
+id: miagent.synthseg
+version: 0.1.0
+upstream_refs:
+  - kind: github_repo
+    name: brudfors/synthseg-monai
+    repo_url: https://github.com/brudfors/synthseg-monai.git
+    git_commit: 9b25434ccbf3a7b4bd902008c4a2514213ac9e6c
+    license: Apache-2.0
+  - kind: github_repo
+    name: balbasty/cornucopia
+    repo_url: https://github.com/balbasty/cornucopia.git
+    git_commit: 8b326481e799bff827cb4e245633631c26db435e
+intended_use:
+  summary: Reproducible label-to-image synthesis for segmentation augmentation or synthetic pretraining.
+  scope: research
+  not_for:
+    - clinical deployment
+    - clinical interpretation
+    - autonomous diagnosis
+    - ordinary MONAI training without label-to-image synthesis
+runtime:
+  language: python
+  python: ">=3.10"
+  entrypoint: scripts/run_synthseg.py
+  requires_docker: true
+  requires_gpu:
+    bootstrap: false
+    prepare_labels: false
+    smoke_synthesis: cuda
+    training: cuda
+  isolation: extension image derived from miagent-core:0.1.0
+  dependencies:
+    monai: "==1.4.0"
+    cornucopia_git_commit: 8b326481e799bff827cb4e245633631c26db435e
+    torch_interpol: "==0.3.0"
+    torch_distmap: "==0.3.0"
+side_effects:
+  network_endpoints:
+    - https://github.com/brudfors/synthseg-monai.git
+  local_writes:
+    - runtime/upstreams/synthseg-monai/9b25434ccbf3a7b4bd902008c4a2514213ac9e6c/
+    - caller-provided output directories
+  forbidden_writes:
+    - host Python environment
+    - containers/core/requirements.lock
+    - cached upstream checkout after bootstrap
+contracts:
+  synthesis_inputs: training-split label maps only
+  default_test_access: forbidden
+  upstream_checkout: exact commit, clean, read-only during workloads
+  scientific_comparator: matched real-data-only control
+  tracking: MLflow, TensorBoard, summary.md, telemetry, shared prediction viewer
+limitations:
+  - The helper does not implement a universal trainer; challenge baselines own training and evaluation adapters.
+  - Three-class or otherwise sparse label maps may not contain enough structure for useful synthesis.
+  - Transform smoke validates execution and invariants, not realism or downstream quality.

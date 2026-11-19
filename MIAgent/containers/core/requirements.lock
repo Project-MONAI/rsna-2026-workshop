@@ -1,0 +1,11 @@
+# Exact application-level versions. PyTorch and CUDA are supplied by the base image.
+monai==1.4.0
+mlflow==3.1.1
+sqlalchemy==2.0.43
+tensorboard==2.19.0
+nibabel==5.3.2
+SimpleITK==2.5.0
+pydicom==3.0.1
+scipy==1.15.3
+typer==0.15.4
+rich==14.0.0

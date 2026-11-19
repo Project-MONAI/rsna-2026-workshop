@@ -1,0 +1,47 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "miagent-llm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "MIAgent LLM",
+      "options": {
+        "baseURL": "{env:MIAgent_LLM_API_BASE_URL}",
+        "apiKey": "{env:MIAgent_LLM_API_KEY}"
+      },
+      "models": {
+        "nvidia/qwen/qwen3.8-27b": {
+          "name": "Qwen3.8 27B (NVIDIA API)"
+        },
+        "nvidia/Qwen3.8-27B-NVFP4": {
+          "name": "Qwen3.8 27B NVFP4 (local)"
+        },
+        "Qwen/Qwen3.8-27B-FP8": {
+          "name": "Qwen3.8 27B FP8 (local)",
+          "limit": {
+            "context": 262144,
+            "output": 8192
+          }
+        },
+        "qwen3.8-flash-next": {
+          "name": "Qwen3.8 Flash Next NVFP4 (local)",
+          "limit": {
+            "context": 131072,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
+  "permission": {
+    "*": "allow",
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+    "websearch": "allow",
+    "webfetch": "allow"
+  },
+  "model": "{env:OPENCODE_MODEL}"
+}

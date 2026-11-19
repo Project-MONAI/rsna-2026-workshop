@@ -1,0 +1,383 @@
+name: miagent
+
+x-lab-dependency: &lab-dependency
+  lab-init:
+    condition: service_completed_successfully
+
+x-agent-environment: &agent-environment
+  MIAgent_HOST_ROOT: /workspace
+  MIAgent_RUNTIME_DIR: /runtime
+  MLFLOW_TRACKING_URI: http://tracking:5000
+  MIAgent_LLM_API_BASE_URL: http://llm:8000/v1
+  MIAgent_LLM_API_KEY: local
+  MIAgent_LLM_MODEL: "${MIAgent_LLM_MODEL:-Qwen/Qwen3.8-27B-FP8}"
+  OPENCODE_MODEL: "${OPENCODE_MODEL:-miagent-llm/Qwen/Qwen3.8-27B-FP8}"
+  PYTHONUNBUFFERED: "1"
+  USER: miagent
+  HF_HOME: /cache/huggingface
+  TORCH_HOME: /cache/torch
+  NV_SEGMENT_CT_BUNDLE: /cache/bundles/nv-segment-ct
+  MIAgent_MODEL_CACHE: /cache
+
+x-lab-volumes: &lab-volumes
+  - lab-workspace:/workspace
+  - lab-runtime:/runtime
+  - lab-model-cache:/cache
+  - type: bind
+    source: "${MIAgent_DATA_DIR:-../data}"
+    target: /data
+    read_only: true
+    bind:
+      create_host_path: false
+
+services:
+  core:
+    deploy:
+      replicas: 0
+    build:
+      context: .
+      dockerfile: containers/core/Dockerfile
+    image: miagent-core:0.1.0
+    command: ["true"]
+
+  lab-init:
+    build:
+      context: .
+      dockerfile: containers/miagent/Dockerfile
+      args:
+        LOCAL_UID: "${LOCAL_UID:-1000}"
+        LOCAL_GID: "${LOCAL_GID:-1000}"
+    image: miagent-control:0.2.0
+    entrypoint: []
+    user: root
+    restart: "no"
+    environment:
+      LOCAL_UID: "${LOCAL_UID:-1000}"
+      LOCAL_GID: "${LOCAL_GID:-1000}"
+      DOCKER_GID: "${DOCKER_GID:-983}"
+      MIAgent_DATA_DIR: "${MIAgent_DATA_DIR:-../data}"
+      MIAgent_HTTP_PORT: "${MIAgent_HTTP_PORT:-8088}"
+      MIAgent_CHAT_GATE_TOKEN: "${MIAgent_CHAT_GATE_TOKEN:-miagent-student-lab}"
+      MIAgent_LLM_CACHE_VOLUME: "${MIAgent_LLM_CACHE_VOLUME:-miagent-qwen-cache}"
+    volumes: *lab-volumes
+    command: ["python3", "/usr/local/bin/miagent-lab-init"]
+
+  miagent:
+    image: miagent-control:0.2.0
+    entrypoint: []
+    init: true
+    restart: unless-stopped
+    depends_on: *lab-dependency
+    working_dir: /workspace
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    group_add: ["${DOCKER_GID:-983}"]
+    environment:
+      <<: *agent-environment
+      HOME: /miagent-home
+    expose: ["4096", "8080", "8765", "8770"]
+    volumes:
+      - lab-workspace:/workspace
+      - lab-runtime:/runtime
+      - lab-model-cache:/cache
+      - type: bind
+        source: "${MIAgent_DATA_DIR:-../data}"
+        target: /data
+        read_only: true
+        bind:
+          create_host_path: false
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: ["/bin/sh", "/usr/local/bin/miagent-start"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  training:
+    build:
+      context: .
+      dockerfile: containers/training/Dockerfile
+      additional_contexts:
+        core_image: service:core
+    image: miagent-training:0.2.0
+    init: true
+    restart: unless-stopped
+    depends_on: *lab-dependency
+    working_dir: /workspace
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    gpus: all
+    shm_size: 8gb
+    environment:
+      <<: *agent-environment
+      CUDA_VISIBLE_DEVICES: "0"
+      TORCHINDUCTOR_CACHE_DIR: /cache/torchinductor
+      TRITON_CACHE_DIR: /cache/triton
+      MPLCONFIGDIR: /runtime/caches/matplotlib
+      XDG_CACHE_HOME: /runtime/caches/xdg
+      nnUNet_compile: "false"
+      nnUNet_raw: /runtime/nnunet/raw
+      nnUNet_preprocessed: /runtime/nnunet/preprocessed
+      nnUNet_results: /runtime/nnunet/results
+      PYTHONPATH: /cache/upstreams/nnUNet
+    volumes: *lab-volumes
+    command: ["/usr/local/bin/training-watchdog"]
+    healthcheck:
+      test: ["CMD", "nvidia-smi", "-L"]
+      interval: 2m30s
+      timeout: 15s
+      retries: 4
+      start_period: 30s
+
+  tracking:
+    build:
+      context: .
+      dockerfile: containers/tracking/Dockerfile
+    image: miagent-tracking:0.2.0
+    init: true
+    restart: unless-stopped
+    depends_on: *lab-dependency
+    working_dir: /workspace
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      HOME: /runtime/tracking-home
+      PYTHONUNBUFFERED: "1"
+    expose: ["5000", "6006"]
+    volumes:
+      - lab-workspace:/workspace:ro
+      - lab-runtime:/runtime
+    command: ["supervisord", "-c", "/etc/miagent/supervisord.conf"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  paseo:
+    build:
+      context: .
+      dockerfile: containers/paseo/Dockerfile
+      args:
+        OPENCODE_VERSION: "1.18.30"
+    image: miagent-paseo:0.1.0
+    init: true
+    restart: unless-stopped
+    depends_on: *lab-dependency
+    working_dir: /workspace
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    group_add: ["${DOCKER_GID:-983}"]
+    environment:
+      <<: *agent-environment
+      HOME: /runtime/paseo-home
+      PASEO_HOME: /runtime/paseo-home/.paseo
+      XDG_CONFIG_HOME: /runtime/paseo-home/.config
+      XDG_DATA_HOME: /runtime/paseo-home/.local/share
+      XDG_STATE_HOME: /runtime/paseo-home/.local/state
+      XDG_CACHE_HOME: /runtime/paseo-home/.cache
+      PASEO_RELAY_ENABLED: "false"
+      # Brev assigns a different Secure Link hostname to each lab instance.
+      PASEO_HOSTNAMES: "${MIAgent_DOMAIN:-miagent.local},.${MIAgent_DOMAIN:-miagent.local},.brevlab.com,.gobrev.dev,${MIAgent_PUBLIC_HOST:-localhost},localhost,127.0.0.1"
+      PASEO_TRUSTED_PROXIES: 172.16.0.0/12
+      OPENCODE_ENABLE_EXA: "1"
+    expose: ["6767"]
+    volumes:
+      - lab-workspace:/workspace
+      - lab-runtime:/runtime
+      - lab-model-cache:/cache
+      - type: bind
+        source: "${MIAgent_DATA_DIR:-../data}"
+        target: /data
+        read_only: true
+        bind:
+          create_host_path: false
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:6767/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  archive-viewer:
+    profiles: [solutions]
+    image: miagent-control:0.2.0
+    entrypoint: []
+    init: true
+    restart: unless-stopped
+    working_dir: /opt/miagent-seed
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    ports: ["127.0.0.1:${MIAgent_ARCHIVE_VIEWER_PORT:-8780}:8770"]
+    volumes:
+      - type: bind
+        source: "${MIAgent_SOLUTION_DIR:-../MIAgent_solution}"
+        target: /archive
+        read_only: true
+        bind:
+          create_host_path: false
+      - "${MIAgent_DATA_DIR:-../data}:/data:ro"
+    command: ["python3", "tools/webui/app.py", "--challenge", "/archive", "--root", "/archive", "--data-root", "/data", "--runtime", "/nonexistent-runtime", "--host", "0.0.0.0", "--port", "8770"]
+    networks: [archive]
+
+  archive-tracking:
+    profiles: [solutions]
+    image: miagent-tracking:0.2.0
+    entrypoint: []
+    init: true
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    volumes:
+      - type: bind
+        source: "${MIAgent_SOLUTION_DIR:-../MIAgent_solution}"
+        target: /archive
+        read_only: true
+        bind:
+          create_host_path: false
+    command: ["/bin/sh", "/usr/local/bin/archive-tracking-start"]
+    networks: [archive]
+
+  llm-download:
+    profiles: [download]
+    build:
+      context: .
+      dockerfile: containers/lab/download.Dockerfile
+    image: miagent-llm-download:0.1.0
+    entrypoint: ["python3", "/opt/download_model.py"]
+    environment:
+      HF_HOME: /root/.cache/huggingface
+      MIAgent_LLM_MODEL: "${MIAgent_LLM_MODEL:-Qwen/Qwen3.8-27B-FP8}"
+      MIAgent_LLM_REVISION: "${MIAgent_LLM_REVISION:-017b9c7af6b5689d5dd426a76e0bc077eb5ca20a}"
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: "1"
+    volumes:
+      - llm-hf-cache:/root/.cache/huggingface
+
+  llm:
+    build:
+      context: .
+      dockerfile: containers/lab/llm.Dockerfile
+      args:
+        VLLM_IMAGE: "${MIAgent_VLLM_IMAGE:-vllm/vllm-openai:nightly}"
+    image: miagent-llm:0.2.0
+    init: true
+    restart: unless-stopped
+    gpus: all
+    ipc: host
+    expose: ["8000"]
+    environment:
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: "1"
+    volumes:
+      - llm-hf-cache:/root/.cache/huggingface
+    command:
+      - "${MIAgent_LLM_MODEL:-Qwen/Qwen3.8-27B-FP8}"
+      - --revision
+      - "${MIAgent_LLM_REVISION:-017b9c7af6b5689d5dd426a76e0bc077eb5ca20a}"
+      - --served-model-name
+      - "${MIAgent_LLM_MODEL:-Qwen/Qwen3.8-27B-FP8}"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --tensor-parallel-size
+      - "1"
+      - --max-model-len
+      - "262144"
+      - --gpu-memory-utilization
+      - "0.80"
+      - --kv-cache-dtype
+      - fp8_e4m3
+      - --max-num-seqs
+      - "${MIAgent_LLM_MAX_NUM_SEQS:-4}"
+      - --max-num-batched-tokens
+      - "8192"
+      - --reasoning-parser
+      - qwen3
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder
+      - --enable-chunked-prefill
+      - --enable-prefix-caching
+      - --speculative-config
+      - '{"method":"mtp","num_speculative_tokens":3}'
+      - --seed
+      - "0"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15m
+    stop_grace_period: 2m
+
+  chat:
+    image: ghcr.io/open-webui/open-webui:v0.11.3
+    init: true
+    restart: unless-stopped
+    environment:
+      OPENAI_API_BASE_URLS: http://llm:8000/v1
+      OPENAI_API_KEYS: local
+      DEFAULT_MODELS: "${MIAgent_LLM_MODEL:-Qwen/Qwen3.8-27B-FP8}"
+      ENABLE_PERSISTENT_CONFIG: "False"
+      WEBUI_AUTH: "False"
+      ENABLE_SIGNUP: "False"
+      # Model-only teaching interface; agent tools remain available in OpenCode.
+      ENABLE_WEB_SEARCH: "False"
+      ENABLE_CODE_EXECUTION: "False"
+      ENABLE_CODE_INTERPRETER: "False"
+      ENABLE_IMAGE_GENERATION: "False"
+      ENABLE_IMAGE_EDIT: "False"
+      ENABLE_MEMORIES: "False"
+      ENABLE_NOTES: "False"
+      ENABLE_CHANNELS: "False"
+      ENABLE_CALENDAR: "False"
+      ENABLE_AUTOMATIONS: "False"
+      ENABLE_SUBAGENTS: "False"
+      ENABLE_DIRECT_CONNECTIONS: "False"
+      ENABLE_OLLAMA_API: "False"
+      ENABLE_PLUGINS: "False"
+      SAFE_MODE: "True"
+      TOOL_SERVER_CONNECTIONS: '[]'
+      TERMINAL_SERVER_CONNECTIONS: '[]'
+      DEFAULT_MODEL_METADATA: '{"capabilities":{"builtin_tools":false,"web_search":false,"code_interpreter":false,"image_generation":false,"file_upload":false,"file_context":false,"vision":false,"terminal":false},"defaultFeatureIds":[],"toolIds":[]}'
+      DEFAULT_MODEL_PARAMS: '{"function_calling":"legacy"}'
+      CORS_ALLOW_ORIGIN: "*"
+    expose: ["8080"]
+    # Container-local storage resets chat history on recreation.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 2m
+
+  gateway:
+    build:
+      context: .
+      dockerfile: containers/gateway/Dockerfile
+    image: miagent-gateway:0.2.0
+    init: true
+    restart: unless-stopped
+    depends_on:
+      miagent:
+        condition: service_healthy
+      tracking:
+        condition: service_healthy
+      chat:
+        condition: service_started
+      paseo:
+        condition: service_healthy
+    environment:
+      MIAgent_DOMAIN: "${MIAgent_DOMAIN:-miagent.local}"
+      MIAgent_HTTP_PORT: "${MIAgent_HTTP_PORT:-8088}"
+      MIAgent_CHAT_GATE_TOKEN: "${MIAgent_CHAT_GATE_TOKEN:-miagent-student-lab}"
+    ports: ["0.0.0.0:${MIAgent_HTTP_PORT:-8088}:80"]
+    networks: [default, archive]
+
+volumes:
+  lab-workspace:
+  lab-runtime:
+  lab-model-cache:
+  llm-hf-cache:
+    name: "${MIAgent_LLM_CACHE_VOLUME:-miagent-qwen-cache}"
+
+networks:
+  archive: {}

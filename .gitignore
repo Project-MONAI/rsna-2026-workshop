@@ -1,0 +1,30 @@
+# Dataset scripts create the contents; retain only the top-level folder.
+/data/*
+!/data/.gitkeep
+/build_reports/
+/MIAgent/lab/delete/
+
+# Filled challenge runs are local; retain reusable source templates.
+**/challenge/*
+!**/challenge/.gitkeep
+!MIAgent/challenge/challenge_template/
+!MIAgent/challenge/challenge_template/**
+**/__pycache__/
+.pytest_cache/
+.venv/
+.env*
+!.env.example
+!.env.*.example
+*.log
+*.key
+*.secret
+*.secrets
+
+# Local authoring, generated outputs, and personal compute configuration.
+/presentation/
+/MIAgent_solution/
+/MIAgent/critics/
+/MIAgent/skills/compute/profiles/*.yaml
+!/MIAgent/skills/compute/profiles/example.yaml
+*endpointdlp*
+*.pptx

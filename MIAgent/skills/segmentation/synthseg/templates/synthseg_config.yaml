@@ -1,0 +1,69 @@
+schema_version: 1
+mode: augmentation_only
+
+upstream:
+  repository: https://github.com/brudfors/synthseg-monai.git
+  commit: 9b25434ccbf3a7b4bd902008c4a2514213ac9e6c
+  cornucopia_commit: 8b326481e799bff827cb4e245633631c26db435e
+
+data:
+  manifest: configs/dataset_manifest.yaml
+  synthesis_splits: [train]
+  split_hash: not_checked
+
+labels:
+  version: example-v1
+  background_id: 0
+  classes:
+    - {id: 0, name: background, priority: 0}
+    - {id: 1, name: anatomy_without_target, source: anatomy, exclude: [target], priority: 10, allow_empty: false}
+    - {id: 2, name: target, source: target, exclude: [], priority: 20, allow_empty: true}
+  containment:
+    - {inner: target, outer: anatomy, max_outside_fraction: 0.0}
+
+geometry:
+  orientation: RAS
+  target_spacing_mm: [1.0, 1.0, 1.0]
+  patch_size: [96, 96, 96]
+  image_interpolation: trilinear
+  label_interpolation: nearest
+
+synthesis:
+  seed: 20260908
+  parameters:
+    elastic_steps: 8
+    rotation: 15
+    shears: 0.012
+    zooms: 0.15
+    elastic: 0.075
+    elastic_nodes: 10
+    gmm_fwhm: 10
+    bias: 7
+    gamma: 0.6
+    motion_fwhm: 3
+    resolution: 8
+    snr: 10
+    gfactor: 5
+    bound: zeros
+    translations: 0.1
+
+training:
+  architecture: challenge_owned
+  initialization: random
+  optimizer: Adam
+  learning_rate: 0.0001
+  scheduler: challenge_owned
+  loss: challenge_owned
+  precision: bf16
+  batch_size: 1
+  patches_per_image: 1
+  effective_patches: 1
+  cache_rate: 0.0
+  max_updates: 2000
+  validation_policy: challenge_owned_sparse
+  checkpoint_selection: best_validation_dice
+
+tracking:
+  held_out_test_accessed: false
+  validation_image_case_ids: []
+  max_validation_images_per_pass: 2

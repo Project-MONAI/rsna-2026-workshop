@@ -1,0 +1,29 @@
+schema_version: 1
+architecture: segresnet3d
+seed: 20260915
+model:
+  init_filters: 16
+  dropout: 0.1
+input:
+  windows: [broad, cardiac_soft_tissue, context]
+  coordinates: true
+  patch_size: [128, 128, 64]
+training:
+  epochs: 10
+  validation_epochs: [5, 10]
+  samples_per_epoch: 512
+  batch_size: 2
+  validation_batch_size: 2
+  workers: 2
+  precision: bf16
+  optimizer: adamw
+  learning_rate: 0.0005
+  weight_decay: 0.0001
+  class_weighting: sqrt_inverse_frequency
+  dice_weight: 1.0
+  cross_entropy_weight: 0.5
+augmentation:
+  flip_probability: 0.5
+inference:
+  overlap: 0.5
+  largest_component_per_class: true

@@ -1,0 +1,47 @@
+#!/bin/bash
+# Generic evaluation/inference template.
+#
+# Copy this file into a challenge run jobs/ directory before use.
+# Submit with explicit user/profile values:
+#
+#   COMMAND='cd "$RUN" && python evaluate.py' \
+#   CONTAINER_IMAGE=/path/to/container.sqsh \
+#   CONTAINER_MOUNT=/lustre/...:/home \
+#   sbatch --account "$ACCOUNT" --partition "$PARTITION" \
+#     --output "$LOG_DIR/%x_%j.out" --error "$LOG_DIR/%x_%j.err" \
+#     eval.sbatch.tmpl
+
+#SBATCH --nodes=1
+#SBATCH --gpus-per-node=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH -t 2:00:00
+#SBATCH --job-name=mia_eval
+
+set -euo pipefail
+
+COMMAND="${COMMAND:?Set COMMAND to the evaluation command}"
+CONTAINER_IMAGE="${CONTAINER_IMAGE:-}"
+CONTAINER_MOUNT="${CONTAINER_MOUNT:-}"
+CONTAINER_REMAP_ROOT="${CONTAINER_REMAP_ROOT:-1}"
+CONTAINER_NO_MOUNT_HOME="${CONTAINER_NO_MOUNT_HOME:-1}"
+
+CONTAINER_ARGS=()
+if [ -n "$CONTAINER_IMAGE" ]; then
+  CONTAINER_ARGS+=(--container-image "$CONTAINER_IMAGE")
+fi
+if [ -n "$CONTAINER_MOUNT" ]; then
+  CONTAINER_ARGS+=(--container-mounts "$CONTAINER_MOUNT")
+fi
+if [ "$CONTAINER_NO_MOUNT_HOME" = "1" ]; then
+  CONTAINER_ARGS+=(--no-container-mount-home)
+fi
+if [ "$CONTAINER_REMAP_ROOT" = "1" ]; then
+  CONTAINER_ARGS+=(--container-remap-root)
+fi
+
+srun \
+  "${CONTAINER_ARGS[@]}" \
+  --export=ALL \
+  bash -lc "$COMMAND"

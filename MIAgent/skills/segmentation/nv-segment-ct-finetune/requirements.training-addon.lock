@@ -1,0 +1,5 @@
+# Packages required by the MONAI bundle CLI path that are not guaranteed by
+# the shared core image. Keep these pins aligned with skill_manifest.yaml.
+fire==0.7.1
+pytorch-ignite==0.5.5
+transformers==4.49.0

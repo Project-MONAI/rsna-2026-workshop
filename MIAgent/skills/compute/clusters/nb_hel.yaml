@@ -1,0 +1,41 @@
+cluster: nb_hel
+description: Shared nb-hel-cs-001 SLURM facts for MIAgent challenge runs.
+
+hosts:
+  default: cluster-login.example.invalid
+  fallbacks:
+    - cluster-login-1.example.invalid
+    - cluster-login-2.example.invalid
+    - cluster-login-3.example.invalid
+
+slurm:
+  known_accounts:
+    - your_slurm_account
+  partitions:
+    cpu_dataprocessing: cpu_dataprocessing,cpu
+    gpu_interactive: interactive
+    gpu_batch: batch
+    gpu_batch_short: batch_short
+    gpu_backfill: backfill
+    gpu_full_node: batch
+  wall_time:
+    interactive: "4:00:00"
+    batch: "4:00:00"
+    batch_short: "2:00:00"
+    backfill: "4:00:00"
+  limits:
+    active_interactive_jobs_per_user: 2
+    concurrent_cpu_jobs_per_user: 2
+  commands:
+    queue: squeue --me
+    accounting: sacct -j <job_id> --format=JobID,JobName,State,Elapsed,ExitCode,MaxRSS
+    partitions: sinfo -s
+
+container:
+  remap_root: true
+  no_mount_home: true
+
+notes:
+  - Cluster-wide facts live here. User-specific SSH identities, challenge data roots, MIAgent roots, container images, mounts, Python paths, and validation notes belong in skills/compute/profiles/<profile>.yaml.
+  - nb-hel-cs-001 was probed on 2026-09-08 with 8-GPU nodes and DFW-like partition names.
+  - Ask for or create the teammate's profile before launching jobs for them.

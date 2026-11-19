@@ -1,0 +1,50 @@
+#!/bin/bash
+# Generic GPU training template.
+#
+# Copy this file into a challenge run jobs/ directory before use.
+# Submit with explicit user/profile values, for example:
+#
+#   COMMAND='cd "$RUN" && python train.py' \
+#   CONTAINER_IMAGE=/path/to/container.sqsh \
+#   CONTAINER_MOUNT=/lustre/...:/home \
+#   sbatch --account "$ACCOUNT" --partition "$PARTITION" \
+#     --output "$LOG_DIR/%x_%j.out" --error "$LOG_DIR/%x_%j.err" \
+#     train.sbatch.tmpl
+#
+# Keep account, partition, and log paths out of this shared template because
+# they are user/profile-specific and #SBATCH lines do not expand shell vars.
+
+#SBATCH --nodes=1
+#SBATCH --gpus-per-node=8
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=512G
+#SBATCH -t 4:00:00
+#SBATCH --job-name=mia_train
+
+set -euo pipefail
+
+COMMAND="${COMMAND:?Set COMMAND to the training command}"
+CONTAINER_IMAGE="${CONTAINER_IMAGE:-}"
+CONTAINER_MOUNT="${CONTAINER_MOUNT:-}"
+CONTAINER_REMAP_ROOT="${CONTAINER_REMAP_ROOT:-1}"
+CONTAINER_NO_MOUNT_HOME="${CONTAINER_NO_MOUNT_HOME:-1}"
+
+CONTAINER_ARGS=()
+if [ -n "$CONTAINER_IMAGE" ]; then
+  CONTAINER_ARGS+=(--container-image "$CONTAINER_IMAGE")
+fi
+if [ -n "$CONTAINER_MOUNT" ]; then
+  CONTAINER_ARGS+=(--container-mounts "$CONTAINER_MOUNT")
+fi
+if [ "$CONTAINER_NO_MOUNT_HOME" = "1" ]; then
+  CONTAINER_ARGS+=(--no-container-mount-home)
+fi
+if [ "$CONTAINER_REMAP_ROOT" = "1" ]; then
+  CONTAINER_ARGS+=(--container-remap-root)
+fi
+
+srun \
+  "${CONTAINER_ARGS[@]}" \
+  --export=ALL \
+  bash -lc "$COMMAND"
